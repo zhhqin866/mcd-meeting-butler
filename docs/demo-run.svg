@@ -8,9 +8,9 @@
 <circle cx="62" cy="19" r="6" fill="#28c840"/>
 <text x="343" y="24" fill="#8b949e" text-anchor="middle" font-size="12">python -m src.main plan --people 8 --budget 50</text>
 <text x="22" y="58" fill="#58a6ff" xml:space="preserve">→ delivery-query-addresses 取配送地址 ...</text>
-<text x="22" y="81" fill="#c9d1d9" xml:space="preserve">  地址：江苏省无锡市江阴市***</text>
+<text x="22" y="81" fill="#c9d1d9" xml:space="preserve">  地址：江苏省***</text>
 <text x="22" y="104" fill="#58a6ff" xml:space="preserve">→ delivery-query-stores 找门店（beType=6）...</text>
-<text x="22" y="127" fill="#c9d1d9" xml:space="preserve">  门店：麦当劳江阴天安数码城得来速餐厅（storeCode=1990597）</text>
+<text x="22" y="127" fill="#c9d1d9" xml:space="preserve">  门店：麦当劳××××得来速餐厅（storeCode=19*****）</text>
 <text x="22" y="150" fill="#c9d1d9" xml:space="preserve">  预约时段：2026-10-25 12:30　会议时间落在门店「午餐」时段（12:00–15:59）</text>
 <text x="22" y="173" fill="#58a6ff" xml:space="preserve">→ query-meal-assistance 查助餐服务 ...</text>
 <text x="22" y="196" fill="#c9d1d9" xml:space="preserve">  · 保鲜速达：可用</text>
@@ -24,7 +24,7 @@
 <text x="22" y="380" fill="#c9d1d9" xml:space="preserve">  原价 ¥405.20 → 实付 ¥366.12（省 ¥39.08）</text>
 <text x="22" y="403" fill="#c9d1d9" xml:space="preserve">  对比：改用保鲜速达 ¥311.52，可省 ¥54.60</text>
 <text x="22" y="449" fill="#c9d1d9" xml:space="preserve">■ 午餐场 · 8 人 · 人均预算 ¥50</text>
-<text x="22" y="472" fill="#c9d1d9" xml:space="preserve">  门店：麦当劳江阴天安数码城得来速餐厅</text>
+<text x="22" y="472" fill="#c9d1d9" xml:space="preserve">  门店：麦当劳××××得来速餐厅</text>
 <text x="22" y="495" fill="#c9d1d9" xml:space="preserve">  预约：2026-10-25 12:30</text>
 <text x="22" y="518" fill="#c9d1d9" xml:space="preserve">  助餐：专人摆台</text>
 <text x="22" y="541" fill="#c9d1d9" xml:space="preserve">  每人一份：</text>

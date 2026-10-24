@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -21,6 +22,14 @@ from .planner import Item, classify
 BE_TYPE_GROUP = 6     # 企业团餐
 BE_TYPE_DELIVERY = 2  # 麦乐送
 ORDER_TYPE_DELIVERY = 2
+
+# 输出脱敏等级：province（默认，只留省级）/ city（留到市/区）/ none（不脱敏，仅本机调试）
+MASK_LEVEL = (os.environ.get("MCD_MASK_LEVEL") or "province").strip().lower()
+
+_PROVINCE_SUFFIXES = ("省", "自治区", "特别行政区")
+_MUNICIPALITIES = ("北京市", "上海市", "天津市", "重庆市")
+_STORE_BRAND = "麦当劳"
+_STORE_SUFFIXES = ("得来速餐厅", "得来速", "甜品站", "餐厅", "门店")
 
 # 分类名 → 内部类别
 CATEGORY_BY_NAME = {
@@ -81,15 +90,63 @@ class Assistance:
 
 # ------------------------------------------------------------------ 地址与门店
 
-def mask_address(text: str) -> str:
-    """隐去门牌与楼栋，只留到市/区一级。演示与日志里不该出现真实住址。"""
+def mask_address(text: str, level: str | None = None) -> str:
+    """隐去详细地址，默认只留到**省级**（`江苏省***`）。
+
+    为什么不留到市/区：会议室团餐的场景里，「哪个省」已经足够解释时段与菜单差异；
+    再往下精确到市、区，配合门店名就足以反推真实办公地点，而这个信息对读者毫无价值。
+    需要调试时用 `MCD_MASK_LEVEL=city` 或 `none` 临时放宽。
+    """
     s = str(text or "").strip()
     if not s:
         return "—"
-    cut = max(s.rfind("市"), s.rfind("区"), s.rfind("县"))
-    if 0 <= cut < len(s) - 1:
-        return s[: cut + 1] + "***"
+    lv = (level or MASK_LEVEL).lower()
+    if lv == "none":
+        return s
+    if lv != "city":
+        for suffix in _PROVINCE_SUFFIXES:
+            i = s.find(suffix)
+            if i > 0:
+                return s[: i + len(suffix)] + "***"
+        for m in _MUNICIPALITIES:
+            if s.startswith(m):
+                return m + "***"
+    # 没有省级信息（或显式要求 city）时，退到**第一个**市/区/县，即市级
+    # 注意用第一个而不是最后一个：`甲市乙区…` 要切成 `甲市***`，
+    # 用最后一个会得到 `甲市乙区***`——区县一级已经足够定位了。
+    idx = [i for i in (s.find("市"), s.find("区"), s.find("县")) if i > 0]
+    if idx:
+        return s[: min(idx) + 1] + "***"
     return (s[:4] + "***") if len(s) > 4 else "***"
+
+
+def mask_store_name(name: str) -> str:
+    """隐去门店名里的地点段，保留品牌与业态。
+
+    「麦当劳××市××数码城得来速餐厅」——只脱敏地址是不够的，门店名本身就是定位信息：
+    商场名 + 城市足以反推办公地点。所以一律换成「麦当劳××××得来速餐厅」。
+    """
+    s = str(name or "").strip()
+    if not s:
+        return "—"
+    # 已经是占位名（mock 样本）或已脱敏过的，原样返回，别二次打码
+    if MASK_LEVEL == "none" or "××" in s or any(k in s for k in ("示例", "静态", "样本")):
+        return s
+    if not s.startswith(_STORE_BRAND):
+        return s
+    for suffix in _STORE_SUFFIXES:
+        if s.endswith(suffix):
+            return f"{_STORE_BRAND}××××{suffix}"
+    return f"{_STORE_BRAND}××××"
+
+
+def mask_store_code(code: str) -> str:
+    """门店编码能反查门店，输出里只保留前两位。"""
+    s = str(code or "").strip()
+    if not s or MASK_LEVEL == "none":
+        return s
+    return s[:2] + "*" * max(0, len(s) - 2)
+
 
 
 def resolve_address(client: McdMcpClient, keyword: str | None = None) -> dict[str, Any]:

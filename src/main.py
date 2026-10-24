@@ -70,7 +70,7 @@ def _live_data(client: McdMcpClient, args, meeting: datetime):
 
     print(f"→ delivery-query-stores 找门店（beType={args.be_type}）...")
     store = catalog.find_store(client, addr["addressId"], args.be_type)
-    print(f"  门店：{store.name}（storeCode={store.storeCode}）")
+    print(f"  门店：{catalog.mask_store_name(store.name)}（storeCode={catalog.mask_store_code(store.storeCode)}）")
 
     reservation, note, period = catalog.suggest_reservation(store, meeting)
     print(f"  预约时段：{reservation}　{note}")
@@ -304,7 +304,7 @@ def cmd_plan(args) -> int:
     print(f"{head} {result['window_label']} · {params.people} 人 · 人均预算 ¥{params.budget:.0f}")
     if not feasible:
         print("  预算内无解，以下为超支最少的备选方案（不是合规方案）")
-    print(f"  门店：{store.get('name', '—')}")
+    print(f"  门店：{catalog.mask_store_name(store.get('name', '—'))}")
     if result.get("reservation"):
         print(f"  预约：{result['reservation']}")
     if result.get("assistance"):
@@ -327,6 +327,8 @@ def cmd_plan(args) -> int:
     print()
     print(f"✓ 报表：{out_xlsx.resolve()}")
     print(f"✓ 方案：{plan_json.resolve()}")
+    if catalog.MASK_LEVEL != "none":
+        print("  ! 终端与日志已脱敏；报表内仍是真实门店名（报账需要），对外发送前请自行确认")
     return 0
 
 
@@ -339,7 +341,7 @@ def cmd_order(args) -> int:
     extra = data.get("extra") or {}
 
     people = result["people"]
-    print(f"门店：{store.get('name')}")
+    print(f"门店：{catalog.mask_store_name(store.get('name'))}")
     for c in result["combo"]:
         print(f"  {c['name']} × {people}")
     print(f"应付：¥{result.get('payable', result['subtotal']):.2f}")
