@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="686" height="772" viewBox="0 0 686 772" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', 'Microsoft YaHei', monospace" font-size="13.5">
+<defs><clipPath id="r"><rect width="100%" height="100%" rx="10"/></clipPath></defs>
+<g clip-path="url(#r)">
+<rect width="686" height="772" fill="#0d1117"/>
+<rect width="686" height="38" fill="#161b22"/>
+<circle cx="22" cy="19" r="6" fill="#ff5f57"/>
+<circle cx="42" cy="19" r="6" fill="#febc2e"/>
+<circle cx="62" cy="19" r="6" fill="#28c840"/>
+<text x="343" y="24" fill="#8b949e" text-anchor="middle" font-size="12">python -m src.main plan --people 8 --budget 50</text>
+<text x="22" y="58" fill="#58a6ff" xml:space="preserve">→ delivery-query-addresses 取配送地址 ...</text>
+<text x="22" y="81" fill="#c9d1d9" xml:space="preserve">  地址：江苏省无锡市江阴市***</text>
+<text x="22" y="104" fill="#58a6ff" xml:space="preserve">→ delivery-query-stores 找门店（beType=6）...</text>
+<text x="22" y="127" fill="#c9d1d9" xml:space="preserve">  门店：麦当劳江阴天安数码城得来速餐厅（storeCode=1990597）</text>
+<text x="22" y="150" fill="#c9d1d9" xml:space="preserve">  预约时段：2026-10-25 12:30　会议时间落在门店「午餐」时段（12:00–15:59）</text>
+<text x="22" y="173" fill="#58a6ff" xml:space="preserve">→ query-meal-assistance 查助餐服务 ...</text>
+<text x="22" y="196" fill="#c9d1d9" xml:space="preserve">  · 保鲜速达：可用</text>
+<text x="22" y="219" fill="#c9d1d9" xml:space="preserve">  · 专人分餐：可用</text>
+<text x="22" y="242" fill="#c9d1d9" xml:space="preserve">  · 专人摆台：可用</text>
+<text x="22" y="265" fill="#c9d1d9" xml:space="preserve">  已选：专人摆台</text>
+<text x="22" y="288" fill="#58a6ff" xml:space="preserve">→ query-meals 拉菜单 ...</text>
+<text x="22" y="311" fill="#c9d1d9" xml:space="preserve">  分类 6 个，餐品 47 项</text>
+<text x="22" y="334" fill="#58a6ff" xml:space="preserve">→ list-nutrition-foods 拉营养 ...</text>
+<text x="22" y="357" fill="#c9d1d9" xml:space="preserve">  营养表 158 条，匹配 34 项</text>
+<text x="22" y="380" fill="#c9d1d9" xml:space="preserve">  原价 ¥405.20 → 实付 ¥366.12（省 ¥39.08）</text>
+<text x="22" y="403" fill="#c9d1d9" xml:space="preserve">  对比：改用保鲜速达 ¥311.52，可省 ¥54.60</text>
+<text x="22" y="449" fill="#c9d1d9" xml:space="preserve">■ 午餐场 · 8 人 · 人均预算 ¥50</text>
+<text x="22" y="472" fill="#c9d1d9" xml:space="preserve">  门店：麦当劳江阴天安数码城得来速餐厅</text>
+<text x="22" y="495" fill="#c9d1d9" xml:space="preserve">  预约：2026-10-25 12:30</text>
+<text x="22" y="518" fill="#c9d1d9" xml:space="preserve">  助餐：专人摆台</text>
+<text x="22" y="541" fill="#c9d1d9" xml:space="preserve">  每人一份：</text>
+<text x="22" y="564" fill="#c9d1d9" xml:space="preserve">    · 麦香鸡                ¥18.0  369 kcal</text>
+<text x="22" y="587" fill="#c9d1d9" xml:space="preserve">    · 香芋派                ¥9.0  232 kcal</text>
+<text x="22" y="610" fill="#c9d1d9" xml:space="preserve">    · 麦咖啡™奶铁             ¥21.0  148 kcal</text>
+<text x="22" y="633" fill="#c9d1d9" xml:space="preserve">  人均 ¥48.0 / 749 kcal</text>
+<text x="22" y="656" fill="#c9d1d9" xml:space="preserve">  合计 ¥366.12（预算 ¥400.00）</text>
+<text x="22" y="679" fill="#d29922" xml:space="preserve">  ! 方案在预算与热量区间内，可直接下单</text>
+<text x="22" y="702" fill="#d29922" xml:space="preserve">  ! 改用「保鲜速达」实付 ¥311.52（保鲜速达78折），可省 ¥54.60，但没有摆台服务</text>
+<text x="22" y="725" fill="#c9d1d9" xml:space="preserve">  已按忌口剔除 11 项</text>
+</g></svg>

@@ -81,8 +81,19 @@ class Assistance:
 
 # ------------------------------------------------------------------ 地址与门店
 
+def mask_address(text: str) -> str:
+    """隐去门牌与楼栋，只留到市/区一级。演示与日志里不该出现真实住址。"""
+    s = str(text or "").strip()
+    if not s:
+        return "—"
+    cut = max(s.rfind("市"), s.rfind("区"), s.rfind("县"))
+    if 0 <= cut < len(s) - 1:
+        return s[: cut + 1] + "***"
+    return (s[:4] + "***") if len(s) > 4 else "***"
+
+
 def resolve_address(client: McdMcpClient, keyword: str | None = None) -> dict[str, Any]:
-    """取配送地址。keyword 非空时做模糊匹配，否则取第一条。"""
+    """取配送地址。keyword 非空时做模糊匹配，匹配不上退回第一条并打标记。"""
     data = client.call("delivery-query-addresses", {})
     addresses = (data or {}).get("addresses") or []
     if not addresses:
@@ -94,6 +105,11 @@ def resolve_address(client: McdMcpClient, keyword: str | None = None) -> dict[st
             full = a.get("fullAddress") or ""
             if keyword in full or full in keyword:
                 return a
+        # 匹配不上不要静默用第一条：用户会以为查的是他给的地址，
+        # 实际拿到的是别的城市门店，后面全错。
+        fallback = dict(addresses[0])
+        fallback["_fallback"] = True
+        return fallback
     return addresses[0]
 
 

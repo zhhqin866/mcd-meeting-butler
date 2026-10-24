@@ -56,6 +56,7 @@ W_KCAL = 1 / 50.0       # 每偏离目标 1 kcal
 W_KCAL_CAP = 6.0        # 超热量上限的额外惩罚
 W_NO_COFFEE = 3.0       # 需要咖啡却没给
 W_PRICE = 0.01          # 同分时偏好便宜
+W_IMPUTED = 0.8         # 每有一项热量靠估算，加一点惩罚，避免用缺数据蒙过去
 
 
 @dataclass
@@ -230,6 +231,63 @@ def infer_window(start: str) -> str:
 
 # ------------------------------------------------------------------ 求解
 
+def _median(values: list[float]) -> float | None:
+    if not values:
+        return None
+    vals = sorted(values)
+    mid = len(vals) // 2
+    return vals[mid] if len(vals) % 2 else (vals[mid - 1] + vals[mid]) / 2
+
+
+def _category_kcal_median(pool: list[Item]) -> dict[str, float]:
+    """按类目统计已知热量的中位数，用于补缺失项。"""
+    buckets: dict[str, list[float]] = {}
+    for it in pool:
+        if it.kcal:
+            buckets.setdefault(it.category, []).append(float(it.kcal))
+    out: dict[str, float] = {}
+    for cat, vals in buckets.items():
+        med = _median(vals)
+        if med is not None:
+            out[cat] = med
+    # 饮品类缺失时不能按主食中位数补，否则热量虚高
+    out.setdefault("drink", 120.0)
+    out.setdefault("coffee", 15.0)
+    return out
+
+
+def _upgrade_hint(
+    picked: list[Item], pool: list[Item], per_person: float, kcal: float, lo: float
+) -> dict[str, Any] | None:
+    """热量没达标时，算一笔「加多少钱能补齐」的账。
+
+    比一句「可再加一份小食」有用得多：用户真正想知道的是代价。
+    """
+    if kcal >= lo:
+        return None
+    have = {x.code for x in picked}
+    best: tuple[float, Item, float] | None = None
+    for cand in pool:
+        if cand.code in have or not cand.kcal:
+            continue
+        new_kcal = kcal + cand.kcal
+        if new_kcal < lo:
+            continue
+        new_price = per_person + cand.price
+        if best is None or new_price < best[0]:
+            best = (new_price, cand, new_kcal)
+    if best is None:
+        return None
+    new_price, cand, new_kcal = best
+    return {
+        "name": cand.name,
+        "price": round(cand.price, 2),
+        "new_per_person": round(new_price, 2),
+        "new_kcal": round(new_kcal, 1),
+        "delta": round(cand.price, 2),
+    }
+
+
 def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
     window = params.window_hint if params.window_hint in TIME_WINDOWS else infer_window(params.start)
     lo, hi = TIME_WINDOWS[window]
@@ -251,22 +309,33 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
     sides: list[Item | None] = list(by_cat.get("side", [])) + [None]
     drinks: list[Item | None] = list(by_cat.get("drink", [])) + list(by_cat.get("coffee", [])) + [None]
 
+    # 营养表覆盖不全（实测 47 项餐品只命中一部分）。若因为某一项缺热量就整体
+    # 跳过热量约束，求解器会退化成「只挑便宜」，再反过来提示热量不足。
+    # 改为：缺的项按同类目已知热量的中位数估算，并记一笔惩罚。
+    fallback_kcal = _category_kcal_median(pool)
+
+    def kcal_of(it: Item) -> tuple[float, bool]:
+        if it.kcal is not None:
+            return float(it.kcal), False
+        return fallback_kcal.get(it.category, 0.0), True
+
     best: tuple[float, list[Item], float, float] | None = None
     for m in mains:
         for s in sides:
             for d in drinks:
                 combo = [x for x in (m, s, d) if x is not None]
                 price = sum(x.price for x in combo)
-                kcal = sum(x.kcal or 0 for x in combo)
-                complete = all(x.kcal is not None for x in combo)
+                pairs = [kcal_of(x) for x in combo]
+                kcal = sum(v for v, _ in pairs)
+                imputed = sum(1 for _, est in pairs if est)
 
                 cost = 0.0
                 if price > params.budget:
                     cost += (price - params.budget) * W_OVER_BUDGET
-                if complete:
-                    cost += abs(kcal - target) * W_KCAL
-                    if kcal > max_kcal:
-                        cost += W_KCAL_CAP
+                cost += abs(kcal - target) * W_KCAL
+                if kcal > max_kcal:
+                    cost += W_KCAL_CAP
+                cost += imputed * W_IMPUTED
                 if params.need_coffee and not any(x.category == "coffee" for x in combo):
                     cost += W_NO_COFFEE
                 cost += price * W_PRICE
@@ -277,6 +346,7 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
     assert best is not None
     _, picked, per_person, kcal = best
     total = per_person * params.people
+    upgrade = _upgrade_hint(picked, pool, per_person, kcal, lo)
 
     coffees = by_cat.get("coffee", [])
     coffee_available = bool(coffees)
@@ -296,6 +366,7 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
                 "price": i.price,
                 "category": i.category,
                 "kcal": i.kcal,
+                "estimated": i.kcal is None,
             }
             for i in picked
         ],
@@ -306,18 +377,33 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
         "within_budget": per_person <= params.budget + 1e-6,
         "excluded_by_diet": [i.name for i in excluded],
         "coffee_available": coffee_available,
-        "notes": _notes(picked, params, per_person, kcal, lo, max_kcal, coffee_available, min_coffee),
+        "kcal_estimated": [i.name for i in picked if i.kcal is None],
+        "upgrade": upgrade,
+        "notes": _notes(
+            picked, params, per_person, kcal, lo, max_kcal,
+            coffee_available, min_coffee, upgrade,
+        ),
     }
 
 
-def _notes(picked, params, per_person, kcal, lo, max_kcal, coffee_available=True, min_coffee=None) -> list[str]:
+def _notes(
+    picked, params, per_person, kcal, lo, max_kcal,
+    coffee_available=True, min_coffee=None, upgrade=None,
+) -> list[str]:
     notes: list[str] = []
     if per_person > params.budget + 1e-6:
         notes.append(f"人均 ¥{per_person:.1f} 超出预算 ¥{params.budget:.1f}，建议减一份小食或换单品")
     if kcal > max_kcal + 1e-6:
         notes.append(f"人均 {kcal:.0f} kcal 超出该时段上限 {max_kcal:.0f}，可去掉小食")
     elif kcal < lo - 1e-6:
-        notes.append(f"人均 {kcal:.0f} kcal 低于该时段下限 {lo:.0f}，可再加一份小食或饮品")
+        if upgrade:
+            notes.append(
+                f"人均 {kcal:.0f} kcal 低于该时段下限 {lo:.0f}；"
+                f"加 ¥{upgrade['delta']:.1f} 来一份{upgrade['name']}"
+                f"（人均 ¥{upgrade['new_per_person']:.0f}）可到 {upgrade['new_kcal']:.0f} kcal"
+            )
+        else:
+            notes.append(f"人均 {kcal:.0f} kcal 低于该时段下限 {lo:.0f}，可再加一份小食或饮品")
     if params.need_coffee and not any(i.category == "coffee" for i in picked):
         if coffee_available and min_coffee:
             notes.append(
@@ -328,8 +414,11 @@ def _notes(picked, params, per_person, kcal, lo, max_kcal, coffee_available=True
             notes.append("本方案未含咖啡，需要的话可手动替换饮品")
         else:
             notes.append("该门店当前没有咖啡类餐品")
-    if not any(i.kcal for i in picked):
+    missing = [i.name for i in picked if i.kcal is None]
+    if len(missing) == len(picked):
         notes.append("未获取到营养数据，热量约束未生效")
+    elif missing:
+        notes.append(f"{'、'.join(missing)} 缺营养数据，热量按同类目均值估算")
     if not notes:
         notes.append("方案在预算与热量区间内，可直接下单")
     return notes

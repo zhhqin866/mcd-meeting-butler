@@ -84,13 +84,84 @@ def parse(raw: object) -> dict[str, Nutrition]:
     return out
 
 
+# 菜单名与营养表名的写法差异：商标符号、品牌前缀、杯型后缀。
+# 例：菜单「麦咖啡™美式」 ↔ 营养表「热美式中杯」，直接包含匹配匹配不上。
+_SIZE_TOKENS = ("超大杯", "标准杯", "中杯", "大杯", "小杯")
+_NOISE_TOKENS = (
+    "™", "®", "©", "麦当劳", "麦咖啡",
+    "（", "）", "(", ")", "-", "－", "_", " ", "\u3000",
+)
+
+
+def normalize(name: str) -> str:
+    """去掉商标、品牌前缀与杯型，只留可比的餐品核心名。"""
+    s = str(name or "")
+    for token in _SIZE_TOKENS + _NOISE_TOKENS:
+        s = s.replace(token, "")
+    return s.strip().lower()
+
+
+def _lcs_len(a: str, b: str) -> int:
+    """最长公共子串长度。用于「美式」这类短核心名的兜底匹配。"""
+    if not a or not b:
+        return 0
+    prev = [0] * (len(b) + 1)
+    best = 0
+    for ca in a:
+        cur = [0] * (len(b) + 1)
+        for j, cb in enumerate(b, 1):
+            if ca == cb:
+                cur[j] = prev[j - 1] + 1
+                if cur[j] > best:
+                    best = cur[j]
+        prev = cur
+    return best
+
+
 def lookup(table: dict[str, Nutrition], dish_name: str) -> Nutrition | None:
-    """按名称匹配营养数据，支持「套餐名包含单品名」这类包含匹配。"""
+    """按名称匹配营养数据，逐级放宽：
+
+    1. 原名精确命中
+    2. 归一化后精确命中（去 ™ / 杯型 / 空格）
+    3. 归一化后双向包含，取最长的一方（避免「麦香鸡」误命中「麦香鸡腿堡」）
+    4. 最长公共子串占比 ≥ 0.75 时兜底
+    """
     if not table or not dish_name:
         return None
     if dish_name in table:
         return table[dish_name]
+
+    target = normalize(dish_name)
+    if not target:
+        return None
+
+    norm_index: dict[str, Nutrition] = {}
     for key, val in table.items():
-        if key and (key in dish_name or dish_name in key):
-            return val
-    return None
+        nk = normalize(key)
+        if nk:
+            norm_index.setdefault(nk, val)
+
+    if target in norm_index:
+        return norm_index[target]
+
+    # 包含匹配：优先取核心名更长的，减少误配
+    contained: tuple[int, Nutrition] | None = None
+    for nk, val in norm_index.items():
+        if len(nk) < 2:
+            continue
+        if nk in target or target in nk:
+            score = min(len(nk), len(target))
+            if contained is None or score > contained[0]:
+                contained = (score, val)
+    if contained is not None:
+        return contained[1]
+
+    best: tuple[float, Nutrition] | None = None
+    for nk, val in norm_index.items():
+        common = _lcs_len(target, nk)
+        if not common:
+            continue
+        ratio = common / min(len(target), len(nk))
+        if ratio >= 0.75 and (best is None or ratio > best[0]):
+            best = (ratio, val)
+    return best[1] if best else None

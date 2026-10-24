@@ -17,3 +17,5 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+点餐方案*.json
+点餐方案*.xlsx

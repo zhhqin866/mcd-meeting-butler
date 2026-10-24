@@ -64,7 +64,9 @@ def _mock_data() -> tuple[list[planner.Item], dict[str, Any], dict[str, Any]]:
 def _live_data(client: McdMcpClient, args, meeting: datetime):
     print("→ delivery-query-addresses 取配送地址 ...")
     addr = catalog.resolve_address(client, args.address)
-    print(f"  地址：{addr.get('fullAddress', '—')}")
+    print(f"  地址：{catalog.mask_address(addr.get('fullAddress', ''))}")
+    if addr.get("_fallback"):
+        print(f"  ! 账号里没有匹配「{args.address}」的地址，已退回第一条；门店会按该地址查")
 
     print(f"→ delivery-query-stores 找门店（beType={args.be_type}）...")
     store = catalog.find_store(client, addr["addressId"], args.be_type)
@@ -206,6 +208,16 @@ def cmd_plan(args) -> int:
             banned.update(bad)
             print(f"  有 {len(bad)} 项餐品不可售，已剔除后重新求解（第 {attempt + 2} 次）...")
     else:
+        alive_mains = [
+            i for i in items
+            if i.code not in banned and i.category in ("main", "combo")
+        ]
+        if not alive_mains:
+            raise McpError(
+                f"该门店在「{extra.get('reservation_note') or '当前时段'}」下主食全部不可售——"
+                "菜单接口返回的是全量菜单，只有计价时才知道哪些能卖。"
+                "请换到午餐/晚餐时段，或改用 --be-type 2 走麦乐送"
+            )
         raise McpError("多次重试后仍无法得到可下单的组合，请换门店或改会议时间")
 
     result["need_coffee"] = params.need_coffee
@@ -295,7 +307,11 @@ def cmd_plan(args) -> int:
         print(f"  助餐：{result['assistance']}")
     print("  每人一份：")
     for c in result["combo"]:
-        kcal = f"  {c['kcal']:.0f} kcal" if c.get("kcal") else ""
+        if c.get("kcal"):
+            mark = "≈" if c.get("estimated") else ""
+            kcal = f"  {mark}{c['kcal']:.0f} kcal"
+        else:
+            kcal = ""
         print(f"    · {c['name']:<18} ¥{c['price']:.1f}{kcal}")
     print(f"  人均 ¥{result['per_person_price']:.1f} / {result['per_person_kcal']:.0f} kcal")
     payable = result.get("payable", result["subtotal"])
