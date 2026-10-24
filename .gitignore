@@ -1,0 +1,19 @@
+# 环境与凭证
+.venv/
+venv/
+.env
+*.env
+
+# 运行产物
+*.xlsx
+点餐方案.json
+demo.json
+demo.xlsx
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 编辑器
+.idea/
+.vscode/
+.DS_Store

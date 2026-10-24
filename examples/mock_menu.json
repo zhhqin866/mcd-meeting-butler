@@ -1,0 +1,47 @@
+{
+  "store": {
+    "name": "麦当劳（虹梅路店）· 静态样本",
+    "storeCode": "MOCK-001",
+    "storeName": "麦当劳（虹梅路店）"
+  },
+  "meals": [
+    { "code": "M001", "name": "巨无霸", "price": 26.0, "tags": ["经典", "牛肉"] },
+    { "code": "M002", "name": "麦辣鸡腿堡", "price": 22.0, "tags": ["辣", "鸡肉"] },
+    { "code": "M003", "name": "板烧鸡腿堡", "price": 24.0, "tags": ["鸡肉"] },
+    { "code": "M004", "name": "双层吉士汉堡", "price": 22.0, "tags": ["芝士", "牛肉"] },
+    { "code": "M005", "name": "麦香鱼", "price": 17.0, "tags": ["鱼"] },
+    { "code": "M006", "name": "吉士汉堡", "price": 13.0, "tags": ["芝士", "牛肉"] },
+    { "code": "C001", "name": "巨无霸套餐", "price": 35.0, "tags": ["套餐", "含薯条可乐", "牛肉"] },
+    { "code": "S001", "name": "薯条(中)", "price": 12.0, "tags": [] },
+    { "code": "S002", "name": "麦乐鸡 5 块", "price": 14.0, "tags": [] },
+    { "code": "S003", "name": "玉米杯", "price": 8.0, "tags": [] },
+    { "code": "S004", "name": "苹果片", "price": 7.0, "tags": [] },
+    { "code": "D001", "name": "可口可乐(中)", "price": 10.0, "tags": [] },
+    { "code": "D002", "name": "零度可乐(中)", "price": 10.0, "tags": ["零糖"] },
+    { "code": "D003", "name": "鲜榨橙汁", "price": 12.0, "tags": [] },
+    { "code": "D004", "name": "矿泉水", "price": 6.0, "tags": [] },
+    { "code": "F001", "name": "拿铁(中)", "price": 18.0, "tags": ["咖啡"] },
+    { "code": "F002", "name": "美式(中)", "price": 15.0, "tags": ["咖啡", "零糖"] },
+    { "code": "F003", "name": "卡布奇诺(中)", "price": 19.0, "tags": ["咖啡"] }
+  ],
+  "nutrition": [
+    { "name": "巨无霸", "energy": 550, "protein": 25, "sodium": 950 },
+    { "name": "麦辣鸡腿堡", "energy": 480, "protein": 22, "sodium": 900 },
+    { "name": "板烧鸡腿堡", "energy": 430, "protein": 24, "sodium": 820 },
+    { "name": "双层吉士汉堡", "energy": 480, "protein": 26, "sodium": 1050 },
+    { "name": "麦香鱼", "energy": 340, "protein": 15, "sodium": 580 },
+    { "name": "吉士汉堡", "energy": 300, "protein": 15, "sodium": 620 },
+    { "name": "巨无霸套餐", "energy": 900, "protein": 27, "sodium": 1300 },
+    { "name": "薯条(中)", "energy": 340, "protein": 4, "sodium": 260 },
+    { "name": "麦乐鸡 5 块", "energy": 220, "protein": 13, "sodium": 460 },
+    { "name": "玉米杯", "energy": 90, "protein": 3, "sodium": 5 },
+    { "name": "苹果片", "energy": 35, "protein": 0, "sodium": 0 },
+    { "name": "可口可乐(中)", "energy": 150, "protein": 0, "sodium": 15 },
+    { "name": "零度可乐(中)", "energy": 0, "protein": 0, "sodium": 15 },
+    { "name": "鲜榨橙汁", "energy": 110, "protein": 1, "sodium": 5 },
+    { "name": "矿泉水", "energy": 0, "protein": 0, "sodium": 0 },
+    { "name": "拿铁(中)", "energy": 120, "protein": 6, "sodium": 90 },
+    { "name": "美式(中)", "energy": 5, "protein": 0, "sodium": 5 },
+    { "name": "卡布奇诺(中)", "energy": 90, "protein": 5, "sodium": 80 }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "people": 8,
+  "budget_per_person": 40,
+  "address": "上海市徐汇区虹梅路1801号",
+  "start": "2026-10-24 15:00",
+  "duration": 120,
+  "avoid": ["牛肉", "花生"],
+  "need_coffee": true,
+  "note": "示例输入：8 人下午评审会，人均 40 元，两人不吃牛肉、一人花生过敏，需要咖啡"
+}
