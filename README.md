@@ -125,6 +125,15 @@ python -m src.main plan --people 8 --budget 40 --address "示例地址" --mock -
 
 `--mock` 使用 `examples/mock_menu.json` 里的静态数据，用于录制演示视频与跑测试。
 
+### 5. 网页版（零依赖，直接双击打开）
+
+```bash
+# 不需要 Python、不需要 Token、不需要联网
+open web/index.html          # Windows: start web\index.html
+```
+
+左侧填人数、人均预算、开会时间、忌口，右侧直接出每人餐单、预算与热量体检、剔除清单、账单分摊，并可一键导出四张 Sheet 的 Excel。网页版内置一份脱敏菜单样本，用于演示完整决策链路；逻辑与 CLI 共用同一套约束求解规则（组合穷举 + 代价函数）。
+
 ---
 
 ## 参数说明

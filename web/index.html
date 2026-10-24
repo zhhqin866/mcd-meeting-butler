@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>麦会点 · 会议室团餐管家</title>
+<style>
+  :root{
+    --bg:#f5f5f7;
+    --card:#ffffff;
+    --ink:#17181c;
+    --ink-2:#3d4149;
+    --muted:#71767f;
+    --line:#e9e9ec;
+    --line-2:#f1f1f3;
+    --red:#c8102e;
+    --red-soft:#fdf0f2;
+    --gold:#ffc72c;
+    --gold-soft:#fff8e1;
+    --green:#0f8a5f;
+    --green-soft:#eaf7f1;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(20,22,28,.04), 0 8px 24px rgba(20,22,28,.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:14px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  button,input,select{font-family:inherit;font-size:inherit;color:inherit;}
+
+  /* ---------- header ---------- */
+  header{
+    background:#fff;
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20;
+  }
+  .header-in{
+    max-width:1200px;margin:0 auto;padding:14px 24px;
+    display:flex;align-items:center;gap:14px;
+  }
+  .logo{
+    width:40px;height:40px;border-radius:11px;flex:none;
+    background:linear-gradient(135deg,var(--red),#a50d25);
+    display:grid;place-items:center;
+    box-shadow:0 4px 12px rgba(200,16,46,.28);
+  }
+  .logo svg{display:block;}
+  .brand h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.2px;}
+  .brand p{margin:0;font-size:12px;color:var(--muted);}
+  .header-tag{
+    margin-left:auto;display:flex;gap:8px;align-items:center;
+  }
+  .tag{
+    font-size:12px;padding:4px 10px;border-radius:999px;
+    background:var(--gold-soft);color:#8a5b00;border:1px solid #f3e2b0;
+    white-space:nowrap;
+  }
+  .tag.ghost{background:#f7f7f9;border-color:var(--line);color:var(--muted);}
+
+  /* ---------- layout ---------- */
+  .layout{
+    max-width:1200px;margin:0 auto;padding:22px 24px 60px;
+    display:grid;grid-template-columns:392px minmax(0,1fr);gap:20px;
+    align-items:start;
+  }
+  .card{
+    background:var(--card);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--shadow);
+  }
+  .card-hd{
+    padding:16px 18px 12px;border-bottom:1px solid var(--line-2);
+    display:flex;align-items:center;gap:8px;
+  }
+  .card-hd h2{font-size:14px;margin:0;font-weight:650;}
+  .card-hd .hint{font-size:12px;color:var(--muted);margin-left:auto;font-weight:400;}
+  .card-bd{padding:16px 18px 18px;}
+
+  /* ---------- form ---------- */
+  .form-side{position:sticky;top:82px;}
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .label{
+    display:flex;align-items:baseline;gap:6px;
+    font-size:12.5px;color:var(--ink-2);font-weight:600;margin-bottom:6px;
+  }
+  .label .unit{font-weight:400;color:var(--muted);font-size:11.5px;}
+  .input,select{
+    width:100%;padding:9px 11px;border:1px solid var(--line);
+    border-radius:9px;background:#fcfcfd;outline:none;transition:.15s;
+  }
+  .input:focus,select:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 3px rgba(200,16,46,.07);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{
+    padding:5px 11px;border-radius:999px;border:1px solid var(--line);
+    background:#fcfcfd;cursor:pointer;font-size:12.5px;transition:.15s;user-select:none;
+    color:var(--ink-2);
+  }
+  .chip:hover{border-color:#d6d6da;background:#f7f7f9;}
+  .chip.on{background:var(--red-soft);border-color:#f0b9c2;color:var(--red);font-weight:600;}
+
+  .switch{
+    display:flex;align-items:center;gap:10px;cursor:pointer;
+    padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fcfcfd;
+  }
+  .switch input{display:none;}
+  .knob{
+    width:34px;height:20px;border-radius:999px;background:#dcdce0;position:relative;transition:.18s;flex:none;
+  }
+  .knob::after{
+    content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;
+    border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 2px rgba(0,0,0,.2);
+  }
+  .switch input:checked + .knob{background:var(--red);}
+  .switch input:checked + .knob::after{transform:translateX(14px);}
+  .switch span{font-size:13px;}
+  .switch small{color:var(--muted);font-size:11.5px;margin-left:auto;}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:11px 16px;border-radius:10px;border:1px solid var(--line);
+    background:#fff;cursor:pointer;font-weight:600;transition:.15s;
+  }
+  .btn:hover{background:#f7f7f9;}
+  .btn.primary{
+    background:var(--red);color:#fff;border-color:var(--red);
+    box-shadow:0 6px 16px rgba(200,16,46,.22);
+  }
+  .btn.primary:hover{background:#b00d27;}
+  .btn.block{width:100%;}
+  .btn.sm{padding:7px 12px;font-size:12.5px;border-radius:8px;font-weight:500;}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+
+  /* ---------- results ---------- */
+  .empty{
+    padding:64px 24px;text-align:center;color:var(--muted);
+  }
+  .empty .big{font-size:15px;color:var(--ink-2);font-weight:600;margin-bottom:6px;}
+  .empty .arrow{font-size:12px;}
+
+  .summary{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--line-2);border-radius:12px;overflow:hidden;border:1px solid var(--line-2);
+  }
+  .summary .cell{background:#fff;padding:13px 14px;}
+  .summary .k{font-size:11.5px;color:var(--muted);margin-bottom:3px;}
+  .summary .v{font-size:19px;font-weight:700;letter-spacing:-.2px;}
+  .summary .v small{font-size:11.5px;font-weight:500;color:var(--muted);margin-left:2px;}
+
+  .store{
+    display:flex;gap:12px;align-items:flex-start;
+    padding:13px 14px;border-radius:12px;background:var(--green-soft);
+    border:1px solid #d3ece0;margin-top:14px;
+  }
+  .store.warn{background:var(--gold-soft);border-color:#f3e2b0;}
+  .store .ico{
+    width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;
+    background:#fff;border:1px solid rgba(0,0,0,.05);font-size:15px;
+  }
+  .store .t{font-weight:650;font-size:13.5px;}
+  .store .d{font-size:12.5px;color:var(--ink-2);margin-top:2px;}
+  .store .d b{font-weight:650;}
+  .store .meta{font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;gap:12px;flex-wrap:wrap;}
+
+  .sec-title{
+    display:flex;align-items:center;gap:8px;margin:20px 0 10px;
+    font-size:13px;font-weight:650;
+  }
+  .sec-title .line{flex:1;height:1px;background:var(--line-2);}
+  .sec-title .cnt{font-size:11.5px;color:var(--muted);font-weight:400;}
+
+  .meal{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  }
+  .meal .item{
+    border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#fcfcfd;
+  }
+  .meal .cat{font-size:11px;color:var(--muted);margin-bottom:3px;letter-spacing:.3px;}
+  .meal .nm{font-weight:650;font-size:13.5px;}
+  .meal .ft{display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:var(--ink-2);}
+  .meal .ft .p{color:var(--red);font-weight:650;}
+
+  .bars{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .bar-box{border:1px solid var(--line);border-radius:11px;padding:12px 13px;}
+  .bar-box .top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:7px;}
+  .bar-box .top b{font-weight:650;}
+  .bar-box .top span{color:var(--muted);}
+  .track{height:7px;border-radius:999px;background:#f0f0f2;overflow:hidden;position:relative;}
+  .fill{height:100%;border-radius:999px;background:var(--green);transition:width .5s cubic-bezier(.2,.8,.2,1);}
+  .fill.warn{background:#e2a100;}
+  .fill.bad{background:var(--red);}
+  .bar-box .sub{font-size:11.5px;color:var(--muted);margin-top:6px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line-2);}
+  th{font-weight:600;color:var(--muted);font-size:11.5px;background:#fbfbfc;}
+  tr:last-child td{border-bottom:none;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .save{color:var(--green);font-weight:650;}
+
+  .notes{list-style:none;padding:0;margin:0;}
+  .notes li{
+    font-size:12.5px;color:var(--ink-2);padding:7px 0 7px 20px;position:relative;
+    border-bottom:1px dashed var(--line-2);
+  }
+  .notes li:last-child{border-bottom:none;}
+  .notes li::before{content:"·";position:absolute;left:6px;color:var(--muted);font-weight:700;}
+
+  .excluded{display:flex;flex-wrap:wrap;gap:6px;}
+  .ex{
+    font-size:11.5px;padding:3px 9px;border-radius:999px;
+    background:#f7f7f9;color:#9a9aa2;border:1px solid var(--line);
+    text-decoration:line-through;
+  }
+
+  .actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
+  .foot{
+    margin-top:22px;padding-top:14px;border-top:1px solid var(--line-2);
+    font-size:11.5px;color:var(--muted);line-height:1.7;
+  }
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);
+    background:#17181c;color:#fff;padding:10px 18px;border-radius:999px;
+    font-size:12.5px;opacity:0;pointer-events:none;transition:.25s;z-index:99;
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0);}
+  .hidden{display:none !important;}
+
+  @media (max-width:980px){
+    .layout{grid-template-columns:1fr;}
+    .form-side{position:static;}
+    .meal{grid-template-columns:1fr;}
+    .summary{grid-template-columns:1fr 1fr;}
+    .bars{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-in">
+    <div class="logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="8.2" stroke="#fff" stroke-width="1.9"/>
+        <circle cx="12" cy="12" r="3.4" fill="#fff"/>
+      </svg>
+    </div>
+    <div class="brand">
+      <h1>麦会点 · 会议室团餐管家</h1>
+      <p>说清人数、预算和忌口，一次把菜单、热量、优惠和分摊算明白</p>
+    </div>
+    <div class="header-tag">
+      <span class="tag">1024 造物挑战 · 参评作品</span>
+      <span class="tag ghost">内置脱敏样本数据</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============ 左侧输入 ============ -->
+  <aside class="form-side">
+    <div class="card">
+      <div class="card-hd">
+        <h2>这场会，怎么吃</h2>
+        <span class="hint">填完点生成</span>
+      </div>
+      <div class="card-bd">
+        <div class="presets">
+          <button class="btn sm" data-preset="afternoon">下午场 8 人</button>
+          <button class="btn sm" data-preset="lunch">午餐 12 人</button>
+          <button class="btn sm" data-preset="evening">加班 20 人</button>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <div class="label">会议人数 <span class="unit">人</span></div>
+            <input class="input" id="people" type="number" min="1" max="200" value="8" />
+          </div>
+          <div class="field">
+            <div class="label">人均预算 <span class="unit">元</span></div>
+            <input class="input" id="budget" type="number" min="10" max="300" step="1" value="40" />
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <div class="label">开会时间</div>
+            <input class="input" id="start" type="time" value="15:00" />
+          </div>
+          <div class="field">
+            <div class="label">时长 <span class="unit">分钟</span></div>
+            <input class="input" id="duration" type="number" min="30" max="480" step="30" value="120" />
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">会议室位置</div>
+          <input class="input" id="address" type="text" value="上海市徐汇区虹梅路 1801 号" placeholder="写字楼或园区地址" />
+        </div>
+
+        <div class="field">
+          <div class="label">有人不能吃 <span class="unit">可多选，命中即剔除</span></div>
+          <div class="chips" id="avoidChips">
+            <span class="chip" data-v="牛肉">牛肉</span>
+            <span class="chip" data-v="猪肉">猪肉</span>
+            <span class="chip" data-v="鸡肉">鸡肉</span>
+            <span class="chip" data-v="鱼">鱼</span>
+            <span class="chip" data-v="虾">虾</span>
+            <span class="chip" data-v="花生">花生</span>
+            <span class="chip" data-v="坚果">坚果</span>
+            <span class="chip" data-v="奶">奶制品</span>
+            <span class="chip" data-v="蛋">蛋</span>
+            <span class="chip" data-v="麸质">麸质</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="switch">
+            <input type="checkbox" id="needCoffee" checked />
+            <span class="knob"></span>
+            <span>下午场需要咖啡</span>
+            <small>提神用</small>
+          </label>
+        </div>
+
+        <div class="field">
+          <div class="label">人均热量上限 <span class="unit">kcal，留空按时段推断</span></div>
+          <input class="input" id="maxKcal" type="number" min="100" max="1500" step="50" placeholder="如 650" />
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <button class="btn primary block" id="go">生成点餐方案</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ 右侧结果 ============ -->
+  <main>
+    <div class="card">
+      <div class="card-hd">
+        <h2>点餐方案</h2>
+        <span class="hint" id="resultHint">等待生成</span>
+      </div>
+      <div class="card-bd">
+        <div class="empty" id="empty">
+          <div class="big">左边填完，这里出方案</div>
+          <div class="arrow">人数 · 预算 · 忌口 · 时段 —— 四个约束一起解</div>
+        </div>
+        <div id="result" class="hidden"></div>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   1. 数据层：内置脱敏菜单样本
+   ============================================================ */
+const STORE = {
+  name: "麦当劳（虹梅路店）",
+  code: "S-0217",
+  distance: "480m",
+  groupMeal: true,      // 是否支持企业团餐
+  minQty: 10,           // 团餐起订量
+  leadTime: 120,        // 需提前分钟
+  deliveryFee: 9,       // 配送费
+  freeDeliveryOver: 300 // 满额免配送
+};
+
+const MENU = [
+  { code:"M001", name:"巨无霸",           price:26, tags:["经典","牛肉"],        kcal:550, protein:25, sodium:950 },
+  { code:"M002", name:"麦辣鸡腿堡",       price:22, tags:["辣","鸡肉"],          kcal:480, protein:22, sodium:900 },
+  { code:"M003", name:"板烧鸡腿堡",       price:24, tags:["鸡肉"],               kcal:430, protein:24, sodium:820 },
+  { code:"M004", name:"双层吉士汉堡",     price:22, tags:["芝士","牛肉"],        kcal:480, protein:26, sodium:1050 },
+  { code:"M005", name:"麦香鱼",           price:17, tags:["鱼"],                 kcal:340, protein:15, sodium:580 },
+  { code:"M006", name:"吉士汉堡",         price:13, tags:["芝士","牛肉"],        kcal:300, protein:15, sodium:620 },
+  { code:"C001", name:"巨无霸套餐",       price:35, tags:["套餐","含薯条可乐","牛肉"], kcal:900, protein:27, sodium:1300 },
+  { code:"S001", name:"薯条（中）",       price:12, tags:[],                     kcal:340, protein:4,  sodium:260 },
+  { code:"S002", name:"麦乐鸡 5 块",      price:14, tags:[],                     kcal:220, protein:13, sodium:460 },
+  { code:"S003", name:"玉米杯",           price:8,  tags:[],                     kcal:90,  protein:3,  sodium:5   },
+  { code:"S004", name:"苹果片",           price:7,  tags:[],                     kcal:35,  protein:0,  sodium:0   },
+  { code:"D001", name:"可口可乐（中）",   price:10, tags:[],                     kcal:150, protein:0,  sodium:15  },
+  { code:"D002", name:"零度可乐（中）",   price:10, tags:["零糖"],               kcal:0,   protein:0,  sodium:15  },
+  { code:"D003", name:"鲜榨橙汁",         price:12, tags:[],                     kcal:110, protein:1,  sodium:5   },
+  { code:"D004", name:"矿泉水",           price:6,  tags:[],                     kcal:0,   protein:0,  sodium:0   },
+  { code:"F001", name:"拿铁（中）",       price:18, tags:["咖啡"],               kcal:120, protein:6,  sodium:90  },
+  { code:"F002", name:"美式（中）",       price:15, tags:["咖啡","零糖"],        kcal:5,   protein:0,  sodium:5   },
+  { code:"F003", name:"卡布奇诺（中）",   price:19, tags:["咖啡"],               kcal:90,  protein:5,  sodium:80  }
+];
+
+const COUPONS = [
+  { name:"门店满减券", threshold:300, off:30 },
+  { name:"会员满减券", threshold:200, off:15 },
+  { name:"新人立减券", threshold:100, off:8  }
+];
+
+/* ============================================================
+   2. 规则层：分类、忌口、时段、求解
+   ============================================================ */
+const CATEGORY_RULES = [
+  ["coffee", ["咖啡","拿铁","美式","卡布","摩卡","麦咖啡"]],
+  ["drink",  ["可乐","雪碧","果汁","汁","茶","矿泉水","饮"]],
+  ["side",   ["薯条","鸡块","鸡翅","派","沙拉","玉米","小食","麦乐鸡","苹果片"]],
+  ["combo",  ["套餐","组合","超值","三件"]],
+  ["main",   ["汉堡","堡","卷","饭","粥","油条","松饼","鸡腿","巨无霸","麦香鱼","鱼柳"]]
+];
+
+const ALLERGEN = {
+  "牛肉":["牛肉","牛","beef"],
+  "猪肉":["猪肉","猪","培根","火腿","pork"],
+  "鸡肉":["鸡肉","鸡","chicken"],
+  "鱼":  ["鱼","鳕","fish"],
+  "虾":  ["虾","shrimp"],
+  "花生":["花生","peanut"],
+  "坚果":["坚果","杏仁","核桃","nut"],
+  "奶":  ["奶","芝士","奶酪","乳","milk","cheese"],
+  "蛋":  ["蛋","egg"],
+  "麸质":["面包","堡","麦","面","wheat","gluten"]
+};
+
+const WINDOWS = { morning:[250,500], lunch:[600,900], afternoon:[400,650], evening:[600,900] };
+const WINDOW_LABEL = { morning:"上午场", lunch:"午餐场", afternoon:"下午场", evening:"晚间场" };
+
+const W = { overBudget:3.0, kcal:1/50, kcalCap:6.0, noCoffee:3.0, price:0.01 };
+
+function classify(name){
+  for (const [cat, keys] of CATEGORY_RULES){
+    if (keys.some(k => name.includes(k))) return cat;
+  }
+  return "other";
+}
+function violates(item, avoid){
+  const hay = (item.name + " " + item.tags.join(" ")).toLowerCase();
+  return avoid.some(w => {
+    const keys = ALLERGEN[w] || [w];
+    return keys.some(k => hay.includes(k.toLowerCase()));
+  });
+}
+function inferWindow(t){
+  const m = /(\d{1,2}):(\d{2})/.exec(t || "");
+  if (!m) return "lunch";
+  const h = parseInt(m[1], 10);
+  if (h < 11) return "morning";
+  if (h < 14) return "lunch";
+  if (h < 18) return "afternoon";
+  return "evening";
+}
+
+function solve(menu, p){
+  const win = inferWindow(p.start);
+  const [lo, hi] = WINDOWS[win];
+  const maxKcal = p.maxKcal || hi;
+  const target = (lo + maxKcal) / 2;
+
+  const pool = menu.filter(it => !violates(it, p.avoid));
+  const excluded = menu.filter(it => violates(it, p.avoid));
+
+  const byCat = {};
+  for (const it of pool){
+    const c = classify(it.name);
+    (byCat[c] = byCat[c] || []).push(it);
+  }
+  const mains = [...(byCat.main||[]), ...(byCat.combo||[])];
+  if (!mains.length) return { error:"过滤忌口后没有可选主食，试试放宽忌口条件" };
+
+  const sides  = (byCat.side||[]).length ? byCat.side : [null];
+  const drinks = ([...(byCat.drink||[]), ...(byCat.coffee||[])]).length
+                  ? [...(byCat.drink||[]), ...(byCat.coffee||[])] : [null];
+
+  let best = null;
+  for (const m of mains){
+    for (const s of sides){
+      for (const d of drinks){
+        const combo = [m, s, d].filter(Boolean);
+        const price = combo.reduce((a,x)=>a+x.price,0);
+        const kcal  = combo.reduce((a,x)=>a+(x.kcal||0),0);
+        const complete = combo.every(x => x.kcal != null);
+
+        let cost = 0;
+        if (price > p.budget) cost += (price - p.budget) * W.overBudget;
+        if (complete){
+          cost += Math.abs(kcal - target) * W.kcal;
+          if (kcal > maxKcal) cost += W.kcalCap;
+        }
+        if (p.needCoffee && !combo.some(x => classify(x.name) === "coffee")) cost += W.noCoffee;
+        cost += price * W.price;
+
+        if (!best || cost < best.cost) best = { cost, combo, price, kcal };
+      }
+    }
+  }
+
+  const { combo, price: perPerson, kcal } = best;
+  const people = p.people;
+  const subtotal = perPerson * people;
+  const protein = combo.reduce((a,x)=>a+(x.protein||0),0);
+  const sodium  = combo.reduce((a,x)=>a+(x.sodium||0),0);
+
+  // 团餐通道判定
+  const useGroup = STORE.groupMeal && people >= STORE.minQty;
+  const delivery = useGroup || subtotal >= STORE.freeDeliveryOver ? 0 : STORE.deliveryFee;
+
+  // 优惠券择优
+  const base = subtotal + delivery;
+  const usable = COUPONS.filter(c => base >= c.threshold).sort((a,b)=>b.off-a.off);
+  const coupon = usable[0] || null;
+  const payable = base - (coupon ? coupon.off : 0);
+
+  const notes = [];
+  if (perPerson > p.budget + 1e-6) notes.push(`人均 ¥${perPerson.toFixed(1)} 超出预算 ¥${p.budget}，建议减一份小食`);
+  if (kcal > maxKcal + 1e-6) notes.push(`人均 ${Math.round(kcal)} kcal 超出该时段上限 ${maxKcal}，可去掉小食`);
+  else if (kcal < lo - 1e-6) notes.push(`人均 ${Math.round(kcal)} kcal 低于该时段下限 ${lo}，会议较长建议加一份主食`);
+  if (p.needCoffee && !combo.some(x => classify(x.name) === "coffee")) notes.push("该门店未返回咖啡类餐品，未安排咖啡");
+  if (!useGroup && STORE.groupMeal) notes.push(`当前 ${people} 份未达团餐起订量 ${STORE.minQty} 份，已切换为到店取餐通道`);
+  if (!notes.length) notes.push("方案在预算与热量区间内，可直接下单");
+
+  return {
+    win, winLabel: WINDOW_LABEL[win], lo, maxKcal, target,
+    people, budget: p.budget, combo, perPerson, kcal,
+    subtotal, delivery, coupon, payable, protein, sodium,
+    useGroup, excluded: excluded.map(x => x.name), notes,
+    address: p.address, start: p.start, duration: p.duration
+  };
+}
+
+/* ============================================================
+   3. 视图层
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const money = n => "¥" + n.toFixed(2);
+const CAT_LABEL = { main:"主食", combo:"套餐", side:"小食", drink:"饮品", coffee:"咖啡" };
+
+let lastPlan = null;
+
+function readForm(){
+  const avoid = [...document.querySelectorAll("#avoidChips .chip.on")].map(c => c.dataset.v);
+  const people = Math.max(1, parseInt($("#people").value, 10) || 1);
+  const budget = Math.max(10, parseFloat($("#budget").value) || 40);
+  const maxKcalRaw = $("#maxKcal").value.trim();
+  return {
+    people, budget,
+    start: $("#start").value || "12:00",
+    duration: parseInt($("#duration").value, 10) || 120,
+    address: $("#address").value.trim(),
+    avoid,
+    needCoffee: $("#needCoffee").checked,
+    maxKcal: maxKcalRaw ? parseFloat(maxKcalRaw) : null
+  };
+}
+
+function render(p){
+  const r = $("#result");
+  if (p.error){
+    r.innerHTML = `<div class="empty"><div class="big">${p.error}</div></div>`;
+    r.classList.remove("hidden");
+    $("#empty").classList.add("hidden");
+    $("#resultHint").textContent = "无解";
+    return;
+  }
+  lastPlan = p;
+
+  const budgetRatio = p.perPerson / p.budget;
+  const budgetCls = budgetRatio > 1.0001 ? "bad" : budgetRatio > 0.92 ? "warn" : "";
+  const kcalPos = Math.min(100, Math.max(0, (p.kcal - p.lo) / (p.maxKcal - p.lo) * 100));
+  const kcalCls = p.kcal > p.maxKcal ? "bad" : p.kcal < p.lo ? "warn" : "";
+
+  const mealCards = p.combo.map(x => `
+    <div class="item">
+      <div class="cat">${CAT_LABEL[classify(x.name)] || "其他"}</div>
+      <div class="nm">${x.name}</div>
+      <div class="ft"><span>${x.kcal != null ? x.kcal + " kcal" : "—"}</span><span class="p">${money(x.price)}</span></div>
+    </div>`).join("");
+
+  const perPersonShare = p.payable / p.people;
+  const shareFloor = Math.floor(perPersonShare * 100) / 100;
+  const gap = +(p.payable - shareFloor * p.people).toFixed(2);
+
+  r.innerHTML = `
+    <div class="summary">
+      <div class="cell"><div class="k">人均餐品</div><div class="v">${money(p.perPerson)}<small>/ 预算 ${p.budget}</small></div></div>
+      <div class="cell"><div class="k">应付合计</div><div class="v">${money(p.payable)}<small>${p.people} 人</small></div></div>
+      <div class="cell"><div class="k">人均热量</div><div class="v">${Math.round(p.kcal)}<small>kcal</small></div></div>
+      <div class="cell"><div class="k">时段</div><div class="v" style="font-size:15px">${p.winLabel}<small>${p.duration} 分钟</small></div></div>
+    </div>
+
+    <div class="store ${p.useGroup ? "" : "warn"}">
+      <div class="ico">${p.useGroup ? "✓" : "!"}</div>
+      <div>
+        <div class="t">${STORE.name} · ${p.useGroup ? "企业团餐通道" : "到店取餐通道"}</div>
+        <div class="d">${p.useGroup
+          ? `已确认门店支持企业团餐，${p.people} 份满足起订量 <b>${STORE.minQty} 份</b>，需提前 <b>${STORE.leadTime} 分钟</b> 下单`
+          : `当前 <b>${p.people} 份</b> 未达团餐起订量 <b>${STORE.minQty} 份</b>，已自动切换为普通到店取餐`}</div>
+        <div class="meta"><span>距离 ${STORE.distance}</span><span>配送 ${p.delivery ? money(p.delivery) : "免配送费"}</span><span>门店号 ${STORE.code}</span></div>
+      </div>
+    </div>
+
+    <div class="sec-title">每人一份 <span class="cnt">${p.combo.length} 件 · ${money(p.perPerson)} · ${Math.round(p.kcal)} kcal</span><span class="line"></span></div>
+    <div class="meal">${mealCards}</div>
+
+    <div class="sec-title">约束体检<span class="line"></span></div>
+    <div class="bars">
+      <div class="bar-box">
+        <div class="top"><b>预算</b><span>${money(p.perPerson)} / ${money(p.budget)}</span></div>
+        <div class="track"><div class="fill ${budgetCls}" style="width:${Math.min(100, budgetRatio*100)}%"></div></div>
+        <div class="sub">${p.perPerson <= p.budget ? "在预算内，剩余 " + money(p.budget - p.perPerson) : "超出 " + money(p.perPerson - p.budget)}</div>
+      </div>
+      <div class="bar-box">
+        <div class="top"><b>热量</b><span>${Math.round(p.kcal)} / ${p.maxKcal} kcal</span></div>
+        <div class="track"><div class="fill ${kcalCls}" style="width:${kcalPos}%"></div></div>
+        <div class="sub">该时段建议区间 ${p.lo}–${p.maxKcal} kcal</div>
+      </div>
+    </div>
+
+    ${p.excluded.length ? `
+    <div class="sec-title">按忌口剔除 <span class="cnt">${p.excluded.length} 项 · 硬约束，不做妥协</span><span class="line"></span></div>
+    <div class="excluded">${p.excluded.map(n => `<span class="ex">${n}</span>`).join("")}</div>` : ""}
+
+    <div class="sec-title">账单与分摊<span class="line"></span></div>
+    <table>
+      <thead><tr><th>项目</th><th class="num">金额</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>餐品小计</td><td class="num">${money(p.subtotal)}</td><td>${p.people} 人 × ${money(p.perPerson)}</td></tr>
+        <tr><td>配送费</td><td class="num">${money(p.delivery)}</td><td>${p.delivery ? "未满 " + money(STORE.freeDeliveryOver) + " 或走取餐通道" : "团餐/满额免配送"}</td></tr>
+        <tr><td>优惠券</td><td class="num save">${p.coupon ? "-" + money(p.coupon.off) : "—"}</td><td>${p.coupon ? p.coupon.name + "（满 " + p.coupon.threshold + " 减 " + p.coupon.off + "）" : "当前无可叠加券"}</td></tr>
+        <tr><td><b>应付合计</b></td><td class="num"><b>${money(p.payable)}</b></td><td>${p.coupon ? "已用最优券" : "无券可用"}</td></tr>
+        <tr><td>AA 人均</td><td class="num">${money(perPersonShare)}</td><td>每人 ${money(shareFloor)}，尾差 ${money(gap)} 记在召集人名下</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sec-title">营养汇总<span class="line"></span></div>
+    <table>
+      <thead><tr><th>指标</th><th class="num">人均</th><th class="num">全场</th></tr></thead>
+      <tbody>
+        <tr><td>热量</td><td class="num">${Math.round(p.kcal)} kcal</td><td class="num">${Math.round(p.kcal * p.people)} kcal</td></tr>
+        <tr><td>蛋白质</td><td class="num">${p.protein} g</td><td class="num">${p.protein * p.people} g</td></tr>
+        <tr><td>钠</td><td class="num">${p.sodium} mg</td><td class="num">${p.sodium * p.people} mg</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sec-title">方案说明<span class="line"></span></div>
+    <ul class="notes">${p.notes.map(n => `<li>${n}</li>`).join("")}</ul>
+
+    <div class="actions">
+      <button class="btn primary" id="btnXls">导出 Excel（4 个 Sheet）</button>
+      <button class="btn" id="btnCopy">复制方案发群里</button>
+    </div>
+
+    <div class="foot">
+      数据说明：本页使用内置脱敏菜单样本演示完整决策链路，餐品价格与营养值仅用于展示计算过程；接入麦当劳 MCP 后，价格、供应状态与优惠券均以官方实时返回为准。不构成营养或医疗建议。
+    </div>
+  `;
+  r.classList.remove("hidden");
+  $("#empty").classList.add("hidden");
+  $("#resultHint").textContent = p.winLabel + " · " + p.people + " 人";
+  $("#btnXls").onclick = () => exportXls(p);
+  $("#btnCopy").onclick = () => copyPlan(p);
+}
+
+/* ============================================================
+   4. 导出：SpreadsheetML 多 Sheet（Excel 可直接打开）
+   ============================================================ */
+function exportXls(p){
+  const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const cell = v => (typeof v === "number" && isFinite(v))
+    ? `<Cell><Data ss:Type="Number">${v}</Data></Cell>`
+    : `<Cell><Data ss:Type="String">${esc(v == null ? "" : v)}</Data></Cell>`;
+  const row = arr => `<Row>${arr.map(cell).join("")}</Row>`;
+  const sheet = (name, rows) =>
+    `<Worksheet ss:Name="${esc(name)}"><Table>${rows.map(row).join("")}</Table></Worksheet>`;
+
+  const share = p.payable / p.people;
+  const shareFloor = Math.floor(share * 100) / 100;
+
+  const s1 = [["序号","成员","主食","小食","饮品","热量(kcal)","单价(元)"]];
+  const pick = cat => (p.combo.find(x => classify(x.name) === cat) || {}).name || "—";
+  for (let i = 1; i <= p.people; i++){
+    s1.push([i, "成员" + i, pick("main") !== "—" ? pick("main") : pick("combo"), pick("side"), pick("drink"), Math.round(p.kcal), +p.perPerson.toFixed(2)]);
+  }
+  s1.push(["","合计","","","", Math.round(p.kcal * p.people), +p.subtotal.toFixed(2)]);
+
+  const s2 = [
+    ["项目","金额(元)","说明"],
+    ["餐品小计", +p.subtotal.toFixed(2), `${p.people} 人 × ${p.perPerson.toFixed(2)}`],
+    ["配送费", +p.delivery.toFixed(2), p.delivery ? "未免配送" : "团餐/满额免配送"],
+    ["优惠券", +(-(p.coupon ? p.coupon.off : 0)).toFixed(2), p.coupon ? p.coupon.name : "无"],
+    ["应付合计", +p.payable.toFixed(2), ""],
+    ["AA 人均", +share.toFixed(2), `每人 ${shareFloor.toFixed(2)}，尾差 ${(p.payable - shareFloor*p.people).toFixed(2)} 由召集人承担`]
+  ];
+
+  const s3 = [
+    ["指标","人均","全场","区间/说明"],
+    ["热量(kcal)", Math.round(p.kcal), Math.round(p.kcal*p.people), `${p.lo}-${p.maxKcal}`],
+    ["蛋白质(g)", p.protein, p.protein*p.people, "参考值"],
+    ["钠(mg)", p.sodium, p.sodium*p.people, "参考值"],
+    ["预算(元)", +p.perPerson.toFixed(2), +p.subtotal.toFixed(2), p.perPerson <= p.budget ? "预算内" : "超预算"]
+  ];
+
+  const orig = p.subtotal + (p.delivery || 0);
+  const s4 = [
+    ["项目","原价(元)","优惠后(元)","节省(元)"],
+    ["餐品", +p.subtotal.toFixed(2), +p.subtotal.toFixed(2), 0],
+    ["配送费", +p.delivery.toFixed(2), +p.delivery.toFixed(2), 0],
+    ["优惠券", 0, +(-(p.coupon ? p.coupon.off : 0)).toFixed(2), +(p.coupon ? p.coupon.off : 0).toFixed(2)],
+    ["合计", +orig.toFixed(2), +p.payable.toFixed(2), +(orig - p.payable).toFixed(2)]
+  ];
+
+  const xml = `<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+${sheet("点餐总表", s1)}${sheet("AA分摊", s2)}${sheet("营养汇总", s3)}${sheet("省钱明细", s4)}
+</Workbook>`;
+
+  const blob = new Blob(["\ufeff" + xml], { type:"application/vnd.ms-excel;charset=utf-8" });
+  const a = document.createElement("a");
+  const d = new Date();
+  a.href = URL.createObjectURL(blob);
+  a.download = `点餐方案_${p.people}人_${d.getMonth()+1}${d.getDate()}.xls`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  toast("已导出 Excel，4 个 Sheet");
+}
+
+function copyPlan(p){
+  const txt = [
+    `【会议餐 · ${p.people} 人】${p.winLabel} ${p.start} · ${p.duration} 分钟`,
+    `门店：${STORE.name}（${p.useGroup ? "企业团餐" : "到店取餐"}）`,
+    `每人：${p.combo.map(x => x.name).join(" + ")}`,
+    `人均 ${money(p.perPerson)} / 预算 ${p.budget}，${Math.round(p.kcal)} kcal`,
+    `应付 ${money(p.payable)}，AA 人均 ${money(p.payable / p.people)}`,
+    p.coupon ? `已用 ${p.coupon.name}，省 ${money(p.coupon.off)}` : "无可叠加券",
+    p.excluded.length ? `已剔除：${p.excluded.join("、")}` : ""
+  ].filter(Boolean).join("\n");
+
+  navigator.clipboard.writeText(txt)
+    .then(() => toast("方案已复制，可直接发群里"))
+    .catch(() => toast("复制失败，请手动选择文本"));
+}
+
+function toast(msg){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("on"), 1800);
+}
+
+/* ============================================================
+   5. 交互绑定
+   ============================================================ */
+document.querySelectorAll("#avoidChips .chip").forEach(c => {
+  c.onclick = () => c.classList.toggle("on");
+});
+
+const PRESETS = {
+  afternoon: { people:8,  budget:40, start:"15:00", duration:120, avoid:["牛肉","花生"], coffee:true  },
+  lunch:     { people:12, budget:35, start:"12:00", duration:90,  avoid:[],              coffee:false },
+  evening:   { people:20, budget:30, start:"19:30", duration:180, avoid:["猪肉","奶"],    coffee:false }
+};
+document.querySelectorAll("[data-preset]").forEach(b => {
+  b.onclick = () => {
+    const p = PRESETS[b.dataset.preset];
+    $("#people").value = p.people;
+    $("#budget").value = p.budget;
+    $("#start").value = p.start;
+    $("#duration").value = p.duration;
+    $("#needCoffee").checked = p.coffee;
+    $("#maxKcal").value = "";
+    document.querySelectorAll("#avoidChips .chip").forEach(c =>
+      c.classList.toggle("on", p.avoid.includes(c.dataset.v)));
+    run();
+  };
+});
+
+function run(){
+  const p = readForm();
+  render(solve(MENU, p));
+}
+
+$("#go").onclick = run;
+["people","budget","start","duration","maxKcal"].forEach(id => {
+  $("#" + id).addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+});
+
+run();
+</script>
+</body>
+</html>
