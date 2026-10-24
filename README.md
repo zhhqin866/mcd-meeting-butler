@@ -234,12 +234,14 @@ mcd-meeting-butler/
 ├── web/
 │   └── index.html              # 零依赖网页版，双击即用
 ├── tools/
-│   └── setup_token.py          # 本地 Token 配置（输入不回显）
+│   ├── setup_token.py          # 本地 Token 配置（输入不回显）
+│   └── make_demo_svg.py        # 把一次真实运行的终端输出渲染成 SVG
 ├── examples/
 │   ├── meeting_input.json
 │   └── mock_menu.json
 └── docs/
-    └── demo.md                 # 演示脚本与旁白
+    ├── demo.md                 # 演示脚本与旁白
+    └── demo-run.svg            # README 顶部那张图（内容是真实终端输出）
 ```
 
 ---
