@@ -176,7 +176,20 @@ class McdMcpClient:
         if payload.get("isError"):
             raise McpError(f"{tool} 返回错误：{self._content_text(payload)}")
 
-        return self._decode(payload)
+        return self._unwrap(tool, self._decode(payload))
+
+    @staticmethod
+    def _unwrap(tool: str, data: Any) -> Any:
+        """麦当劳 MCP 统一返回 {success, code, message, datetime, traceId, data}。
+
+        success=false 时抛出 McpError（带上 code 与 message），
+        成功则剥掉信封直接返回 data，业务层不用每次判 success。
+        """
+        if isinstance(data, dict) and "success" in data:
+            if not data.get("success"):
+                raise McpError(f"{tool} 失败：{data.get('message')}（code={data.get('code')}）")
+            return data.get("data")
+        return data
 
     @staticmethod
     def _content_text(payload: dict[str, Any]) -> str:

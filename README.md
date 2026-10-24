@@ -24,28 +24,29 @@
 | 环节 | 人工做法 | 麦会点 |
 |---|---|---|
 | 摸清需求 | 群里挨个问忌口 | 一次输入，转成结构化约束 |
-| 选门店 | 搜地图，不知道能不能送 | `query-nearby-stores` + `query-meal-assistance` 查团餐资质 |
-| 挑餐品 | 翻菜单，套餐内容看不全 | `query-meals` + `query-meal-detail` 拉全量组成 |
+| 选门店 | 搜地图，不知道能不能送 | `delivery-query-stores` 按地址查**团餐**门店 |
+| 判资质 | 不知道有没有团餐、能不能摆台 | `query-meal-assistance` 查助餐服务，含 4 小时预约门槛 |
+| 挑餐品 | 翻菜单，套餐内容看不全 | `query-meals` 拉全量菜单与配料标签 |
 | 控热量 | 凭感觉 | `list-nutrition-foods` 按人均热量区间约束 |
 | 算总价 | 计算器手算 | `calculate-price` 官方计价，含配送费与优惠 |
-| 省钱 | 想不起来有券 | `query-store-coupons` + `available-coupons` 自动叠加 |
 | 报账 | 手写 Excel | 自动生成点餐表 + AA 分摊 + 营养汇总 |
 | 下单 | 打开 App 重输一遍 | `create-order` 确认后直接下单 |
 
 ### 和"套餐推荐助手"的区别
 
-市面上的同类作品大多停在「按预算推一个套餐」。麦会点的差异在三点：
+市面上的同类作品大多停在「按预算推一个套餐」。麦会点的差异在四点：
 
-1. **真的走团餐通道**：先用 `query-meal-assistance` 判断门店是否支持企业团餐、起订量与助餐服务，再决定走团餐还是普通到店取餐。这是 MCP 里被大量忽略的一个 Tool。
-2. **约束是硬的，不是软的**：忌口、过敏、人均热量上下限作为硬约束参与组合求解，不满足就换品，而不是"建议少吃"。
-3. **交付物是 Excel，不是一段话**：报销要凭据、分摊要明细，所以最终产物是一份能直接发群里的点餐表。
+1. **把「助餐服务」当成一等公民**：团餐不是把餐送到楼下就完事。`query-meal-assistance` 返回三档服务——保鲜速达、专人分餐、专人摆台，而后两档**要提前 4 小时预约**。所以工具会根据会议时间自动判断能不能解锁摆台，不能的话明确告诉你差多久。这一点几乎没有同类作品用到。
+2. **约束是硬的，不是软的**：忌口、过敏、人均热量上下限作为硬约束参与组合求解，不满足就换品，而不是"建议少吃"。过滤依据是菜单里的配料标签（「牛肉」「100%纯牛肉」「鸡肉」），比按名字猜准得多。
+3. **价格只信官方**：所有金额以 `calculate-price` 的返回为准，本地估算只用于筛选。菜单里混着不可售的品项，计价会整单报错——工具会逐项定位、剔除、重解，而不是给你一个算得漂亮但下不了单的方案。
+4. **交付物是 Excel，不是一段话**：报销要凭据、分摊要明细，所以最终产物是一份能直接发群里的点餐表。
 
 ---
 
 ## 安装
 
 ```bash
-git clone https://github.com/<your-name>/mcd-meeting-butler.git
+git clone https://github.com/zhhqin866/mcd-meeting-butler.git
 cd mcd-meeting-butler
 
 python -m venv .venv
@@ -55,12 +56,19 @@ pip install -r requirements.txt
 
 ### 配置 MCP Token
 
-1. 打开 <https://open.mcd.cn/mcp>，右上角【登录】，手机号验证
-2. 点【控制台】→【激活】→ 同意服务协议 → 复制 Token
-3. 写入环境变量（**不要写进代码，也不要提交到仓库**）
+1. 打开 <https://open.mcd.cn/mcp>（**必须带 `/mcp`**——`open.mcd.cn` 是商户合作平台，不是这个）
+2. 右上角【登录】→ 用麦当劳 APP / 微信 / 支付宝扫屏幕二维码 → 手机上确认
+3. 登录后右上角变成【控制台】，点它 →【激活】→ 同意服务协议 → 复制 Token
+4. 写入环境变量（**不要写进代码，也不要提交到仓库**）
 
 ```bash
 export MCD_MCP_TOKEN="你的 Token"        # Windows: set MCD_MCP_TOKEN=...
+```
+
+不想手动配的话，跑这个脚本，粘贴一次 Token 就行（输入不回显，只写本地文件）：
+
+```bash
+python tools/setup_token.py
 ```
 
 ---
@@ -81,25 +89,44 @@ python -m src.main probe
 python -m src.main plan \
   --people 8 \
   --budget 40 \
-  --address "上海市徐汇区虹梅路1801号" \
-  --start "2026-10-24 15:00" \
+  --start "2026-10-24 18:00" \
   --duration 120 \
   --avoid 牛肉,花生 \
   --need-coffee \
   --out 点餐方案.xlsx
 ```
 
-实际执行链路：
+实际执行链路（全部为真实调用，参数经实测校准）：
 
 ```
-query-nearby-stores(address)
-  → query-meal-assistance(store)        判断团餐资质
-  → query-meals(store)                  拉全量菜单
-  → list-nutrition-foods()              拉营养表，按忌口与热量区间过滤
-  → query-meal-detail(combo)            展开套餐可替换项
-  → query-store-coupons / available-coupons   找可用券
-  → calculate-price(最终购物车)          官方计价校验
+delivery-query-addresses()
+  → delivery-query-stores(addressId, beType=6)          查团餐门店，拿 storeCode + beCode
+  → 时段对齐：会议时间落到门店的「午餐 / 下午茶 / 夜市」哪一档
+  → query-meal-assistance(storeCode, beType=6, orderType=2, beCode, reservationDate)
+                                                        查助餐服务，选服务等级最高的一档
+  → query-meals(storeCode, orderType=2, beType=6, beCode)
+                                                        菜单 = categories(code+标签) + meals(名称+价格)
+  → list-nutrition-foods()                              营养表，按忌口与热量区间过滤
+  → 本地组合求解                                          主食 × 小食 × 饮品穷举 + 代价排序
+  → calculate-price(..., gmServiceCode, reservationDate) 官方计价；遇售罄自动定位并重解
   → 输出 Excel（4 个 Sheet）
+```
+
+终端会打印每一步的真实返回摘要，例如：
+
+```
+→ delivery-query-stores 找门店（beType=6）...
+  门店：麦当劳江阴天安数码城得来速餐厅（storeCode=1990597）
+  预约时段：2026-10-24 18:00　会议时间落在门店「下午茶」时段（16:00–18:29）
+→ query-meal-assistance 查助餐服务 ...
+  · 保鲜速达：可用
+  · 专人分餐：可用
+  · 专人摆台：可用
+  已选：专人摆台
+→ query-meals 拉菜单 ...
+  分类 5 个，餐品 48 项
+→ calculate-price 官方计价 ...
+  原价 ¥310.80 → 实付 ¥308.00（省 ¥2.80）
 ```
 
 终端会打印方案摘要，同时生成 `点餐方案.xlsx`：
@@ -120,7 +147,7 @@ python -m src.main order --plan 点餐方案.json --confirm
 ### 4. 没有 Token 也能跑通演示
 
 ```bash
-python -m src.main plan --people 8 --budget 40 --address "示例地址" --mock --out demo.xlsx
+python -m src.main plan --people 8 --budget 40 --start "2026-10-24 15:00" --avoid 牛肉,花生 --mock --out demo.xlsx
 ```
 
 `--mock` 使用 `examples/mock_menu.json` 里的静态数据，用于录制演示视频与跑测试。
@@ -142,12 +169,13 @@ open web/index.html          # Windows: start web\index.html
 |---|---|---|
 | `--people` | 会议人数 | 必填 |
 | `--budget` | 人均预算（元） | 必填 |
-| `--address` | 会议地点，用于定位门店 | 必填 |
-| `--start` | 会议开始时间 | 当前时间 |
+| `--start` | 会议时间，如 `"2026-10-24 18:00"` | 当前时间 |
 | `--duration` | 会议时长（分钟） | 120 |
+| `--address` | 用于匹配账号下已保存的配送地址，留空取第一条 | 第一条 |
 | `--avoid` | 忌口 / 过敏原，逗号分隔 | 无 |
 | `--need-coffee` | 需要咖啡提神（下午场建议开） | 关 |
-| `--max-kcal` | 人均热量上限 | 按时段自动推断 |
+| `--max-kcal` | 人均热量上限 | 按门店时段自动推断 |
+| `--be-type` | `6`=企业团餐，`2`=麦乐送 | `6` |
 | `--mock` | 使用本地静态数据 | 关 |
 | `--out` | Excel 输出路径 | `点餐方案.xlsx` |
 
@@ -164,9 +192,15 @@ mcd-meeting-butler/
 ├── requirements.txt
 ├── src/
 │   ├── main.py                 # CLI 入口：probe / plan / order
-│   ├── mcd_client.py           # Streamable HTTP MCP 客户端（含 SSE 解析）
+│   ├── mcd_client.py           # Streamable HTTP MCP 客户端（含 SSE 解析、拆信封）
+│   ├── catalog.py              # 取数：地址 → 门店 → 助餐服务 → 菜单 → 计价
+│   ├── nutrition.py            # 营养紧凑表解析
 │   ├── planner.py              # 约束求解与选品逻辑
 │   └── report.py               # Excel 报表生成
+├── web/
+│   └── index.html              # 零依赖网页版，双击即用
+├── tools/
+│   └── setup_token.py          # 本地 Token 配置（输入不回显）
 ├── examples/
 │   ├── meeting_input.json
 │   └── mock_menu.json
@@ -178,9 +212,9 @@ mcd-meeting-butler/
 
 ## 设计取舍
 
-- **为什么不直接让大模型挑？** 预算、忌口、热量是硬约束，大模型容易在"差不多"上妥协。所以选品交给确定性算法（贪心 + 局部替换），大模型只负责把自然语言转成参数、把结果讲成人话。
+- **为什么不直接让大模型挑？** 预算、忌口、热量是硬约束，大模型容易在"差不多"上妥协。所以选品交给确定性算法（主食 × 小食 × 饮品穷举 + 代价函数排序），大模型只负责把自然语言转成参数、把结果讲成人话。代价函数里超预算的权重最高，其次是热量偏离目标区间，再次是「要咖啡却没给咖啡」。
 - **为什么最终产物是 Excel？** 因为真实场景里这张表要发群、要报销、要留档。一段聊天记录解决不了这个需求。
-- **为什么先查团餐资质？** 团餐和普通取餐的起订量、配送、结算方式都不同。不先判断，后面算出来的价格是错的。
+- **为什么先查助餐服务？** 团餐和普通取餐的服务能力、起订量、配送方式都不同；而且专人摆台要提前 4 小时预约，不先判断，用户会以为「点了就有」。价格也一样——服务码不同，折扣也不同。
 
 ---
 

@@ -66,18 +66,21 @@ def build(result: dict[str, Any], store: dict[str, Any], out_path: str | Path) -
     combo = result["combo"]
     subtotal = result["subtotal"]
     discount = float(result.get("discount") or 0.0)
-    payable = round(subtotal - discount, 2)
+    payable = float(result.get("payable") or round(subtotal - discount, 2))
     per_head = round(payable / people, 2) if people else 0.0
 
     # ---------------------------------------------------------- Sheet 1 点餐总表
     ws = _sheet(wb, "点餐总表")
-    row = _title(
-        ws,
-        f"麦会点 · 会议点餐单（{people} 人）",
-        6,
-        f"门店：{store.get('name', '待定')}　时段：{result['window_label']}　"
+    meta = [
+        f"门店：{store.get('name', '待定')}",
+        f"时段：{result['window_label']}",
         f"人均预算：¥{result['budget_per_person']:.1f}",
-    )
+    ]
+    if result.get("reservation"):
+        meta.append(f"预约：{result['reservation']}")
+    if result.get("assistance"):
+        meta.append(f"助餐服务：{result['assistance']}")
+    row = _title(ws, f"麦会点 · 会议点餐单（{people} 人）", 6, "　".join(meta))
     _header(ws, row, ["序号", "餐品", "类别", "单价(元)", "份数", "小计(元)"], [8, 32, 10, 12, 8, 12])
     row += 1
     for i, item in enumerate(combo, start=1):

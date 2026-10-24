@@ -84,6 +84,7 @@ class MeetingParams:
     need_coffee: bool = False
     max_kcal: float | None = None
     address: str = ""
+    window_hint: str = ""  # 门店实际供餐时段（morning/lunch/afternoon/evening），优先于按小时推断
 
 
 # ------------------------------------------------------------------ 归一化
@@ -230,7 +231,7 @@ def infer_window(start: str) -> str:
 # ------------------------------------------------------------------ 求解
 
 def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
-    window = infer_window(params.start)
+    window = params.window_hint if params.window_hint in TIME_WINDOWS else infer_window(params.start)
     lo, hi = TIME_WINDOWS[window]
     max_kcal = params.max_kcal or hi
     target = (lo + max_kcal) / 2
@@ -246,8 +247,9 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
     if not mains:
         raise ValueError("过滤忌口后没有可选主食，请放宽 --avoid 或换门店")
 
-    sides: list[Item | None] = list(by_cat.get("side", [])) or [None]
-    drinks: list[Item | None] = list(by_cat.get("drink", [])) + list(by_cat.get("coffee", [])) or [None]
+    # 必须保留 None，否则预算紧时永远凑三件套、直接超支
+    sides: list[Item | None] = list(by_cat.get("side", [])) + [None]
+    drinks: list[Item | None] = list(by_cat.get("drink", [])) + list(by_cat.get("coffee", [])) + [None]
 
     best: tuple[float, list[Item], float, float] | None = None
     for m in mains:
@@ -276,6 +278,10 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
     _, picked, per_person, kcal = best
     total = per_person * params.people
 
+    coffees = by_cat.get("coffee", [])
+    coffee_available = bool(coffees)
+    min_coffee = min((c.price for c in coffees), default=None)
+
     return {
         "window": window,
         "window_label": WINDOW_LABEL[window],
@@ -299,20 +305,29 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
         "budget_total": round(params.budget * params.people, 2),
         "within_budget": per_person <= params.budget + 1e-6,
         "excluded_by_diet": [i.name for i in excluded],
-        "notes": _notes(picked, params, per_person, kcal, lo, max_kcal),
+        "coffee_available": coffee_available,
+        "notes": _notes(picked, params, per_person, kcal, lo, max_kcal, coffee_available, min_coffee),
     }
 
 
-def _notes(picked, params, per_person, kcal, lo, max_kcal) -> list[str]:
+def _notes(picked, params, per_person, kcal, lo, max_kcal, coffee_available=True, min_coffee=None) -> list[str]:
     notes: list[str] = []
     if per_person > params.budget + 1e-6:
         notes.append(f"人均 ¥{per_person:.1f} 超出预算 ¥{params.budget:.1f}，建议减一份小食或换单品")
     if kcal > max_kcal + 1e-6:
         notes.append(f"人均 {kcal:.0f} kcal 超出该时段上限 {max_kcal:.0f}，可去掉小食")
     elif kcal < lo - 1e-6:
-        notes.append(f"人均 {kcal:.0f} kcal 低于该时段下限 {lo:.0f}，会议较长建议加一份主食")
+        notes.append(f"人均 {kcal:.0f} kcal 低于该时段下限 {lo:.0f}，可再加一份小食或饮品")
     if params.need_coffee and not any(i.category == "coffee" for i in picked):
-        notes.append("该门店未返回咖啡类餐品，未安排咖啡")
+        if coffee_available and min_coffee:
+            notes.append(
+                f"预算内放不下咖啡（门店最低 ¥{min_coffee:.1f}），"
+                f"人均提到 ¥{per_person + min_coffee:.0f} 左右可加一杯"
+            )
+        elif coffee_available:
+            notes.append("本方案未含咖啡，需要的话可手动替换饮品")
+        else:
+            notes.append("该门店当前没有咖啡类餐品")
     if not any(i.kcal for i in picked):
         notes.append("未获取到营养数据，热量约束未生效")
     if not notes:
