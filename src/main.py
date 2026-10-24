@@ -299,7 +299,11 @@ def cmd_plan(args) -> int:
 
     # ---------------------------------------------------------- 终端摘要
     print()
-    print(f"■ {result['window_label']} · {params.people} 人 · 人均预算 ¥{params.budget:.0f}")
+    feasible = result.get("feasible", True)
+    head = "■" if feasible else "✗"
+    print(f"{head} {result['window_label']} · {params.people} 人 · 人均预算 ¥{params.budget:.0f}")
+    if not feasible:
+        print("  预算内无解，以下为超支最少的备选方案（不是合规方案）")
     print(f"  门店：{store.get('name', '—')}")
     if result.get("reservation"):
         print(f"  预约：{result['reservation']}")

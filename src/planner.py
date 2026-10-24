@@ -50,8 +50,8 @@ ALLERGEN_MAP = {
     "麸质": ("面包", "堡", "麦", "面", "wheat", "gluten"),
 }
 
-# 代价函数权重
-W_OVER_BUDGET = 3.0     # 每超 1 元
+# 代价函数权重。注意：预算不在这里——预算是硬约束，先过滤再评分，
+# 见 plan() 里的两段式求解。
 W_KCAL = 1 / 50.0       # 每偏离目标 1 kcal
 W_KCAL_CAP = 6.0        # 超热量上限的额外惩罚
 W_NO_COFFEE = 3.0       # 需要咖啡却没给
@@ -319,7 +319,12 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
             return float(it.kcal), False
         return fallback_kcal.get(it.category, 0.0), True
 
-    best: tuple[float, list[Item], float, float] | None = None
+    # 预算对行政来说是硬上限——超一块钱也报不了。所以先按预算过滤，只在可行域
+    # 里评分；可行域为空时才退一步，给一份「最接近」的方案并明说没有合规解，
+    # 而不是让代价函数偷偷替用户放松约束。
+    best: tuple[float, list[Item], float, float] | None = None      # 可行域内最优
+    closest: tuple[float, list[Item], float, float] | None = None   # 超预算时的兜底
+
     for m in mains:
         for s in sides:
             for d in drinks:
@@ -328,25 +333,39 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
                 pairs = [kcal_of(x) for x in combo]
                 kcal = sum(v for v, _ in pairs)
                 imputed = sum(1 for _, est in pairs if est)
+                no_coffee = params.need_coffee and not any(x.category == "coffee" for x in combo)
 
-                cost = 0.0
-                if price > params.budget:
-                    cost += (price - params.budget) * W_OVER_BUDGET
-                cost += abs(kcal - target) * W_KCAL
+                if price > params.budget + 1e-6:
+                    # 兜底候选：优先「超得最少」，同超支时再比热量与咖啡
+                    over = price - params.budget
+                    alt = over * 10 + abs(kcal - target) * W_KCAL + imputed * W_IMPUTED
+                    if no_coffee:
+                        alt += W_NO_COFFEE
+                    if closest is None or alt < closest[0]:
+                        closest = (alt, combo, price, kcal)
+                    continue
+
+                cost = abs(kcal - target) * W_KCAL
                 if kcal > max_kcal:
                     cost += W_KCAL_CAP
                 cost += imputed * W_IMPUTED
-                if params.need_coffee and not any(x.category == "coffee" for x in combo):
+                if no_coffee:
                     cost += W_NO_COFFEE
                 cost += price * W_PRICE
 
                 if best is None or cost < best[0]:
                     best = (cost, combo, price, kcal)
 
-    assert best is not None
+    feasible = best is not None
+    if not feasible:
+        if closest is None:
+            raise ValueError("没有任何组合能凑出方案，请放宽忌口或换门店")
+        best = closest
+
     _, picked, per_person, kcal = best
     total = per_person * params.people
-    upgrade = _upgrade_hint(picked, pool, per_person, kcal, lo)
+    # 无解时不再建议「加一份小食」——那只会更超预算
+    upgrade = _upgrade_hint(picked, pool, per_person, kcal, lo) if feasible else None
 
     coffees = by_cat.get("coffee", [])
     coffee_available = bool(coffees)
@@ -375,22 +394,33 @@ def plan(menu: list[Item], params: MeetingParams) -> dict[str, Any]:
         "subtotal": round(total, 2),
         "budget_total": round(params.budget * params.people, 2),
         "within_budget": per_person <= params.budget + 1e-6,
+        "feasible": feasible,
+        "over_budget": round(max(0.0, per_person - params.budget), 2),
         "excluded_by_diet": [i.name for i in excluded],
         "coffee_available": coffee_available,
         "kcal_estimated": [i.name for i in picked if i.kcal is None],
         "upgrade": upgrade,
         "notes": _notes(
             picked, params, per_person, kcal, lo, max_kcal,
-            coffee_available, min_coffee, upgrade,
+            coffee_available, min_coffee, upgrade, feasible,
         ),
     }
 
 
 def _notes(
     picked, params, per_person, kcal, lo, max_kcal,
-    coffee_available=True, min_coffee=None, upgrade=None,
+    coffee_available=True, min_coffee=None, upgrade=None, feasible=True,
 ) -> list[str]:
     notes: list[str] = []
+    if not feasible:
+        over = per_person - params.budget
+        notes.append(
+            f"没有满足全部条件的方案：人均预算 ¥{params.budget:.0f} 内凑不出合规组合，"
+            f"下面这份是最接近的——人均 ¥{per_person:.1f}，超 ¥{over:.1f}"
+        )
+        notes.append("要压到预算内，可以去掉一项，或换一家起订价更低的门店")
+        # 无解时不再叠加「加热量」「加咖啡」这类建议——它们只会让超支更多
+        return notes
     if per_person > params.budget + 1e-6:
         notes.append(f"人均 ¥{per_person:.1f} 超出预算 ¥{params.budget:.1f}，建议减一份小食或换单品")
     if kcal > max_kcal + 1e-6:
@@ -415,10 +445,10 @@ def _notes(
         else:
             notes.append("该门店当前没有咖啡类餐品")
     missing = [i.name for i in picked if i.kcal is None]
-    if len(missing) == len(picked):
-        notes.append("未获取到营养数据，热量约束未生效")
-    elif missing:
-        notes.append(f"{'、'.join(missing)} 缺营养数据，热量按同类目均值估算")
+    if missing:
+        # 缺数据项已按类目中位数补齐，约束仍然生效，只是精度差一些
+        scope = "全部餐品" if len(missing) == len(picked) else "、".join(missing)
+        notes.append(f"{scope}缺营养数据，热量按同类目均值估算")
     if not notes:
         notes.append("方案在预算与热量区间内，可直接下单")
     return notes
