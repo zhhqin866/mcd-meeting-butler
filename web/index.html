@@ -336,6 +336,16 @@
           <input class="input" id="maxKcal" type="number" min="100" max="1500" step="50" placeholder="如 650" />
         </div>
 
+        <div class="field">
+          <div class="label">助餐服务档位 <span class="unit">省钱大头在这一项</span></div>
+          <div class="chips" id="tierChips">
+            <span class="chip on" data-v="GMS001">保鲜速达 · 78 折</span>
+            <span class="chip" data-v="GMS002">专人分餐</span>
+            <span class="chip" data-v="GMS003">专人摆台</span>
+          </div>
+          <div class="sub" id="tierHint" style="margin-top:6px;font-size:12px;opacity:.72">官方计价自带 78 折，最快送达，无人现场服务</div>
+        </div>
+
         <div class="field" style="margin-top:16px">
           <button class="btn primary block" id="go">生成点餐方案</button>
         </div>
@@ -398,6 +408,18 @@ const MENU = [
   { code:"F001", name:"拿铁（中）",       price:18, tags:["咖啡"],               kcal:120, protein:6,  sodium:90  },
   { code:"F002", name:"美式（中）",       price:15, tags:["咖啡","零糖"],        kcal:5,   protein:0,  sodium:5   },
   { code:"F003", name:"卡布奇诺（中）",   price:19, tags:["咖啡"],               kcal:90,  protein:5,  sodium:80  }
+];
+
+/* 助餐服务档位 —— 团餐链路真正的大头优惠在这里，不在券上。
+   GMS001 保鲜速达官方计价自带 78 折；GMS002/003 提供现场服务但没有折扣。
+   后两档需要提前 4 小时预约。 */
+const SERVICE_TIERS = [
+  { code:"GMS001", name:"保鲜速达", rate:0.78, leadHours:0,
+    desc:"官方计价自带 78 折，最快送达，无人现场服务" },
+  { code:"GMS002", name:"专人分餐", rate:1.00, leadHours:4,
+    desc:"到店分装到人，无档位折扣，需提前 4 小时" },
+  { code:"GMS003", name:"专人摆台", rate:1.00, leadHours:4,
+    desc:"现场摆台布置，无档位折扣，需提前 4 小时" }
 ];
 
 const COUPONS = [
@@ -512,11 +534,28 @@ function solve(menu, p){
   const useGroup = STORE.groupMeal && people >= STORE.minQty;
   const delivery = useGroup || subtotal >= STORE.freeDeliveryOver ? 0 : STORE.deliveryFee;
 
-  // 优惠券择优
+  // ① 服务档位：团餐真正的省钱大头，官方计价直接给折扣
+  let tier = SERVICE_TIERS.find(t => t.code === p.tierCode) || SERVICE_TIERS[0];
+  const [hh, mm] = String(p.start || "12:00").split(":").map(Number);
+  const now = new Date();
+  const meetAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh || 12, mm || 0);
+  const hoursAhead = (meetAt - now) / 3600000;
+  let tierLocked = false;
+  if (tier.leadHours > 0 && hoursAhead < tier.leadHours){
+    tierLocked = true;
+    tier = SERVICE_TIERS[0];          // 锁不住的服务档位回退到保鲜速达
+  }
   const base = subtotal + delivery;
-  const usable = COUPONS.filter(c => base >= c.threshold).sort((a,b)=>b.off-a.off);
+  const tierOff = +(subtotal * (1 - tier.rate)).toFixed(2);
+  const afterTier = +(base - tierOff).toFixed(2);
+
+  // ② 满减券：按折后金额择优。档位折扣越狠，折后金额越低，高档位券反而用不上
+  const usable = COUPONS.filter(c => afterTier >= c.threshold).sort((a,b)=>b.off-a.off);
   const coupon = usable[0] || null;
-  const payable = base - (coupon ? coupon.off : 0);
+  const couponOff = coupon ? coupon.off : 0;
+  const payable = +(afterTier - couponOff).toFixed(2);
+  const totalSaved = +(tierOff + couponOff).toFixed(2);
+  const savedPct = base > 0 ? totalSaved / base * 100 : 0;
 
   const notes = [];
   if (perPerson > p.budget + 1e-6) notes.push(`人均 ¥${perPerson.toFixed(1)} 超出预算 ¥${p.budget}，建议减一份小食`);
@@ -524,12 +563,27 @@ function solve(menu, p){
   else if (kcal < lo - 1e-6) notes.push(`人均 ${Math.round(kcal)} kcal 低于该时段下限 ${lo}，会议较长建议加一份主食`);
   if (p.needCoffee && !combo.some(x => classify(x.name) === "coffee")) notes.push("该门店未返回咖啡类餐品，未安排咖啡");
   if (!useGroup && STORE.groupMeal) notes.push(`当前 ${people} 份未达团餐起订量 ${STORE.minQty} 份，已切换为到店取餐通道`);
+  if (tierLocked) notes.push(`距会议仅 ${Math.max(0, hoursAhead).toFixed(1)} 小时，专人分餐/摆台需提前 4 小时预约，已自动回退到「保鲜速达」`);
+
+  // 档位取舍：选了现场服务就明确告诉你，改用保鲜速达能省多少
+  if (!tierLocked && tier.rate >= 1){
+    const altOff = +(subtotal * 0.22).toFixed(2);
+    const altAfter = +(base - altOff).toFixed(2);
+    const altCoupon = COUPONS.filter(c => altAfter >= c.threshold).sort((a,b)=>b.off-a.off)[0] || null;
+    const altPayable = +(altAfter - (altCoupon ? altCoupon.off : 0)).toFixed(2);
+    const diff = +(payable - altPayable).toFixed(2);
+    if (diff > 0.01){
+      notes.push(`改用「保鲜速达」实付 ${money(altPayable)}（78 折），可省 ${money(diff)}，但没有${tier.name}服务`);
+    }
+  }
+
   if (!notes.length) notes.push("方案在预算与热量区间内，可直接下单");
 
   return {
     win, winLabel: WINDOW_LABEL[win], lo, maxKcal, target,
     people, budget: p.budget, combo, perPerson, kcal,
-    subtotal, delivery, coupon, payable, protein, sodium,
+    subtotal, delivery, coupon, couponOff, payable, protein, sodium,
+    base, tier, tierOff, tierLocked, totalSaved, savedPct,
     useGroup, excluded: excluded.map(x => x.name), notes,
     address: p.address, start: p.start, duration: p.duration
   };
@@ -549,6 +603,7 @@ function readForm(){
   const people = Math.max(1, parseInt($("#people").value, 10) || 1);
   const budget = Math.max(10, parseFloat($("#budget").value) || 40);
   const maxKcalRaw = $("#maxKcal").value.trim();
+  const tierCode = (document.querySelector("#tierChips .chip.on") || {}).dataset?.v || "GMS001";
   return {
     people, budget,
     start: $("#start").value || "12:00",
@@ -556,7 +611,8 @@ function readForm(){
     address: $("#address").value.trim(),
     avoid,
     needCoffee: $("#needCoffee").checked,
-    maxKcal: maxKcalRaw ? parseFloat(maxKcalRaw) : null
+    maxKcal: maxKcalRaw ? parseFloat(maxKcalRaw) : null,
+    tierCode
   };
 }
 
@@ -571,8 +627,26 @@ function render(p){
   }
   lastPlan = p;
 
-  const budgetRatio = p.perPerson / p.budget;
+  const perPersonFinal = p.payable / p.people;   // 折后实付口径
+  const budgetRatio = perPersonFinal / p.budget;
   const budgetCls = budgetRatio > 1.0001 ? "bad" : budgetRatio > 0.92 ? "warn" : "";
+
+  // 档位 chip 实时标注：省多少 / 多花多少 / 是否被时间锁住
+  const fullOff = +(p.subtotal * 0.22).toFixed(2);
+  document.querySelectorAll("#tierChips .chip").forEach(c => {
+    const t = SERVICE_TIERS.find(x => x.code === c.dataset.v);
+    if (!t) return;
+    const label = t.code === "GMS001" ? "保鲜速达 · 78 折" : t.name;
+    if (t.leadHours > 0 && p.tierLocked) c.textContent = `${label} · 需提前 4h`;
+    else if (t.rate < 1) c.textContent = `${label} · 省 ¥${Math.round(fullOff)}`;
+    else c.textContent = `${label} · 多花 ¥${Math.round(fullOff)}`;
+  });
+  // 被时间锁住时，选中态回退到实际生效的档位
+  if (p.tierLocked){
+    document.querySelectorAll("#tierChips .chip").forEach(c =>
+      c.classList.toggle("on", c.dataset.v === p.tier.code));
+    $("#tierHint").textContent = p.tier.desc;
+  }
   const kcalPos = Math.min(100, Math.max(0, (p.kcal - p.lo) / (p.maxKcal - p.lo) * 100));
   const kcalCls = p.kcal > p.maxKcal ? "bad" : p.kcal < p.lo ? "warn" : "";
 
@@ -590,7 +664,7 @@ function render(p){
   r.innerHTML = `
     <div class="summary">
       <div class="cell"><div class="k">人均餐品</div><div class="v">${money(p.perPerson)}<small>/ 预算 ${p.budget}</small></div></div>
-      <div class="cell"><div class="k">应付合计</div><div class="v">${money(p.payable)}<small>${p.people} 人</small></div></div>
+      <div class="cell"><div class="k">应付合计</div><div class="v">${money(p.payable)}<small>省 ${money(p.totalSaved)}</small></div></div>
       <div class="cell"><div class="k">人均热量</div><div class="v">${Math.round(p.kcal)}<small>kcal</small></div></div>
       <div class="cell"><div class="k">时段</div><div class="v" style="font-size:15px">${p.winLabel}<small>${p.duration} 分钟</small></div></div>
     </div>
@@ -612,9 +686,9 @@ function render(p){
     <div class="sec-title">约束体检<span class="line"></span></div>
     <div class="bars">
       <div class="bar-box">
-        <div class="top"><b>预算</b><span>${money(p.perPerson)} / ${money(p.budget)}</span></div>
+        <div class="top"><b>预算</b><span>${money(perPersonFinal)} / ${money(p.budget)}</span></div>
         <div class="track"><div class="fill ${budgetCls}" style="width:${Math.min(100, budgetRatio*100)}%"></div></div>
-        <div class="sub">${p.perPerson <= p.budget ? "在预算内，剩余 " + money(p.budget - p.perPerson) : "超出 " + money(p.perPerson - p.budget)}</div>
+        <div class="sub">折后实付口径 · 餐品原价 ${money(p.perPerson)} · ${perPersonFinal <= p.budget ? "剩余 " + money(p.budget - perPersonFinal) : "超出 " + money(perPersonFinal - p.budget)}</div>
       </div>
       <div class="bar-box">
         <div class="top"><b>热量</b><span>${Math.round(p.kcal)} / ${p.maxKcal} kcal</span></div>
@@ -633,8 +707,9 @@ function render(p){
       <tbody>
         <tr><td>餐品小计</td><td class="num">${money(p.subtotal)}</td><td>${p.people} 人 × ${money(p.perPerson)}</td></tr>
         <tr><td>配送费</td><td class="num">${money(p.delivery)}</td><td>${p.delivery ? "未满 " + money(STORE.freeDeliveryOver) + " 或走取餐通道" : "团餐/满额免配送"}</td></tr>
-        <tr><td>优惠券</td><td class="num save">${p.coupon ? "-" + money(p.coupon.off) : "—"}</td><td>${p.coupon ? p.coupon.name + "（满 " + p.coupon.threshold + " 减 " + p.coupon.off + "）" : "当前无可叠加券"}</td></tr>
-        <tr><td><b>应付合计</b></td><td class="num"><b>${money(p.payable)}</b></td><td>${p.coupon ? "已用最优券" : "无券可用"}</td></tr>
+        <tr><td>服务档位折扣</td><td class="num save">${p.tierOff > 0 ? "-" + money(p.tierOff) : "—"}</td><td>${p.tier.rate < 1 ? p.tier.name + "（官方计价 " + (p.tier.rate*10).toFixed(1) + " 折）" : p.tier.name + " 无档位折扣 · 比保鲜速达多花 " + money(p.subtotal * 0.22)}</td></tr>
+        <tr><td>满减券</td><td class="num save">${p.couponOff > 0 ? "-" + money(p.couponOff) : "—"}</td><td>${p.coupon ? p.coupon.name + "（满 " + p.coupon.threshold + " 减 " + p.coupon.off + "）" : "折后金额未达任一门槛"}</td></tr>
+        <tr><td><b>应付合计</b></td><td class="num"><b>${money(p.payable)}</b></td><td>较原价 ${money(p.base)} 省 ${money(p.totalSaved)}（${p.savedPct.toFixed(1)}%）</td></tr>
         <tr><td>AA 人均</td><td class="num">${money(perPersonShare)}</td><td>每人 ${money(shareFloor)}，尾差 ${money(gap)} 记在召集人名下</td></tr>
       </tbody>
     </table>
@@ -658,7 +733,7 @@ function render(p){
     </div>
 
     <div class="foot">
-      数据说明：本页使用内置脱敏菜单样本演示完整决策链路，餐品价格与营养值仅用于展示计算过程；接入麦当劳 MCP 后，价格、供应状态与优惠券均以官方实时返回为准。不构成营养或医疗建议。
+      数据说明：本页使用内置脱敏菜单样本演示完整决策链路，餐品价格与营养值仅用于展示计算过程；服务档位折扣率取自官方计价实测（保鲜速达 78 折）。接入麦当劳 MCP 后，价格、供应状态与优惠券均以官方实时返回为准。不构成营养或医疗建议。
     </div>
   `;
   r.classList.remove("hidden");
@@ -686,7 +761,7 @@ function exportXls(p){
   const s1 = [["序号","成员","主食","小食","饮品","热量(kcal)","单价(元)"]];
   const pick = cat => (p.combo.find(x => classify(x.name) === cat) || {}).name || "—";
   for (let i = 1; i <= p.people; i++){
-    s1.push([i, "成员" + i, pick("main") !== "—" ? pick("main") : pick("combo"), pick("side"), pick("drink"), Math.round(p.kcal), +p.perPerson.toFixed(2)]);
+    s1.push([i, "成员" + i, pick("main") !== "—" ? pick("main") : pick("combo"), pick("side"), pick("drink") !== "—" ? pick("drink") : pick("coffee"), Math.round(p.kcal), +p.perPerson.toFixed(2)]);
   }
   s1.push(["","合计","","","", Math.round(p.kcal * p.people), +p.subtotal.toFixed(2)]);
 
@@ -694,8 +769,9 @@ function exportXls(p){
     ["项目","金额(元)","说明"],
     ["餐品小计", +p.subtotal.toFixed(2), `${p.people} 人 × ${p.perPerson.toFixed(2)}`],
     ["配送费", +p.delivery.toFixed(2), p.delivery ? "未免配送" : "团餐/满额免配送"],
-    ["优惠券", +(-(p.coupon ? p.coupon.off : 0)).toFixed(2), p.coupon ? p.coupon.name : "无"],
-    ["应付合计", +p.payable.toFixed(2), ""],
+    ["服务档位折扣", +(-p.tierOff).toFixed(2), p.tier.name + (p.tier.rate < 1 ? `（${(p.tier.rate*10).toFixed(1)} 折）` : "（无档位折扣）")],
+    ["满减券", +(-p.couponOff).toFixed(2), p.coupon ? p.coupon.name : "折后未达门槛"],
+    ["应付合计", +p.payable.toFixed(2), `较原价省 ${p.totalSaved.toFixed(2)}（${p.savedPct.toFixed(1)}%）`],
     ["AA 人均", +share.toFixed(2), `每人 ${shareFloor.toFixed(2)}，尾差 ${(p.payable - shareFloor*p.people).toFixed(2)} 由召集人承担`]
   ];
 
@@ -707,12 +783,13 @@ function exportXls(p){
     ["预算(元)", +p.perPerson.toFixed(2), +p.subtotal.toFixed(2), p.perPerson <= p.budget ? "预算内" : "超预算"]
   ];
 
-  const orig = p.subtotal + (p.delivery || 0);
+  const orig = p.base || (p.subtotal + (p.delivery || 0));
   const s4 = [
     ["项目","原价(元)","优惠后(元)","节省(元)"],
     ["餐品", +p.subtotal.toFixed(2), +p.subtotal.toFixed(2), 0],
     ["配送费", +p.delivery.toFixed(2), +p.delivery.toFixed(2), 0],
-    ["优惠券", 0, +(-(p.coupon ? p.coupon.off : 0)).toFixed(2), +(p.coupon ? p.coupon.off : 0).toFixed(2)],
+    ["服务档位折扣", 0, +(-p.tierOff).toFixed(2), +p.tierOff.toFixed(2)],
+    ["满减券", 0, +(-p.couponOff).toFixed(2), +p.couponOff.toFixed(2)],
     ["合计", +orig.toFixed(2), +p.payable.toFixed(2), +(orig - p.payable).toFixed(2)]
   ];
 
@@ -739,7 +816,8 @@ function copyPlan(p){
     `每人：${p.combo.map(x => x.name).join(" + ")}`,
     `人均 ${money(p.perPerson)} / 预算 ${p.budget}，${Math.round(p.kcal)} kcal`,
     `应付 ${money(p.payable)}，AA 人均 ${money(p.payable / p.people)}`,
-    p.coupon ? `已用 ${p.coupon.name}，省 ${money(p.coupon.off)}` : "无可叠加券",
+    `服务档位：${p.tier.name}${p.tier.rate < 1 ? `（${(p.tier.rate*10).toFixed(1)} 折）` : ""}，较原价省 ${money(p.totalSaved)}（${p.savedPct.toFixed(1)}%）`,
+    p.coupon ? `已叠加 ${p.coupon.name}` : "",
     p.excluded.length ? `已剔除：${p.excluded.join("、")}` : ""
   ].filter(Boolean).join("\n");
 
@@ -761,6 +839,16 @@ function toast(msg){
    ============================================================ */
 document.querySelectorAll("#avoidChips .chip").forEach(c => {
   c.onclick = () => c.classList.toggle("on");
+});
+
+document.querySelectorAll("#tierChips .chip").forEach(c => {
+  c.onclick = () => {
+    document.querySelectorAll("#tierChips .chip").forEach(x => x.classList.remove("on"));
+    c.classList.add("on");
+    const t = SERVICE_TIERS.find(x => x.code === c.dataset.v);
+    $("#tierHint").textContent = t ? t.desc : "";
+    run();
+  };
 });
 
 const PRESETS = {
