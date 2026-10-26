@@ -7,8 +7,12 @@
 
 > 省钱的真正大头不是凑券，是选对服务档位。同一份 8 人方案：专人摆台实付 ¥290（省 9.4%），改选保鲜速达实付 ¥234.60（省 26.7%），一次差 ¥55.40。工具把这个价差直接摆在你面前。
 
-> **如果这个思路对你有用，点个 ⭐ Star 就是最好的支持。**
-> 这是「麦当劳程序员节创意开发大赛」参赛作品，Star 数决定能否进前 100 名。
+> **不想装 Python、不想配 Token？网页版点开就能试：**
+> <https://mcd-meal-butler.app.workbuddy.host/?sharecode=WNTH7QJ45Y>
+> （零依赖单文件，填完参数直接出餐单 + 预算体检 + 四张表 Excel）
+
+> 本项目参加「WorkBuddy 1024 造物挑战」与掘金「1024·新饭碗计划」。
+> 如果这个思路对你有用，点个 ⭐ Star 就是最好的支持。
 
 ![一次真实运行：从地址到门店、助餐服务、菜单、营养、官方计价](docs/demo-run.svg)
 
@@ -188,7 +192,11 @@ python -m src.main plan --people 8 --budget 40 --start "2026-10-24 15:00" --avoi
 
 `--mock` 使用 `examples/mock_menu.json` 里的静态数据，用于录制演示视频与跑测试。
 
-### 5. 网页版（零依赖，直接双击打开）
+### 5. 网页版（零依赖，双击就能开）
+
+**在线体验（推荐，什么都不用装）**：<https://mcd-meal-butler.app.workbuddy.host/?sharecode=WNTH7QJ45Y>
+
+本地打开：
 
 ```bash
 # 不需要 Python、不需要 Token、不需要联网
